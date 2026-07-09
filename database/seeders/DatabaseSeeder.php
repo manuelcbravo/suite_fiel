@@ -17,6 +17,8 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call(RoleSeeder::class);
+        $this->call(CatalogosSeeder::class);
+        $this->call(DirectorioSeeder::class);
 
         $admin = User::query()->where('email', 'admin@fielgroup.com.mx')->first()
             ?? User::factory()->create([

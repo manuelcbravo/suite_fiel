@@ -14,10 +14,18 @@ enum Permiso: string
     // Administración
     case UsuariosGestionar = 'usuarios.gestionar';
 
+    // Catálogos (Módulo 0): estados, municipios, sectores, dependencias, ejes…
+    case CatalogosGestionar = 'catalogos.gestionar';
+
+    // Directorio (Módulo 2): beneficiarios, organizaciones, proveedores.
+    case DirectorioGestionar = 'directorio.gestionar';
+
     public function label(): string
     {
         return match ($this) {
             self::UsuariosGestionar => 'Gestionar usuarios y roles',
+            self::CatalogosGestionar => 'Gestionar catálogos',
+            self::DirectorioGestionar => 'Gestionar directorio',
         };
     }
 }

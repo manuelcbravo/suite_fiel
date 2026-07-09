@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
 import type { InertiaLinkProps } from '@inertiajs/react';
-import { ChevronRight, LayoutGrid, Settings } from 'lucide-react';
+import { Contact, ChevronRight, LayoutGrid, Settings } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavUser } from '@/components/nav-user';
@@ -26,8 +26,12 @@ import { useCurrentUrl } from '@/hooks/use-current-url';
 import type { IsCurrentUrlFn } from '@/hooks/use-current-url';
 import { usePermisos } from '@/hooks/use-permisos';
 import { dashboard } from '@/routes';
+import { index as configCatalogos } from '@/routes/config/catalogos';
 import { index as configRoles } from '@/routes/config/roles';
 import { index as configUsers } from '@/routes/config/users';
+import { index as directorioBeneficiarios } from '@/routes/directorio/beneficiarios';
+import { index as directorioOrganizaciones } from '@/routes/directorio/organizaciones';
+import { index as directorioProveedores } from '@/routes/directorio/proveedores';
 
 type Href = NonNullable<InertiaLinkProps['href']>;
 type Enlace = { title: string; href: Href };
@@ -42,12 +46,23 @@ export function AppSidebar() {
     const { puede } = usePermisos();
     const { isCurrentUrl } = useCurrentUrl();
 
+    const directorioItems: Enlace[] = puede('directorio.gestionar')
+        ? [
+              { title: 'Beneficiarios', href: directorioBeneficiarios() },
+              { title: 'Organizaciones', href: directorioOrganizaciones() },
+              { title: 'Proveedores', href: directorioProveedores() },
+          ]
+        : [];
+
     const configuracionItems: Enlace[] = [
         ...(puede('usuarios.gestionar')
             ? [
                   { title: 'Usuarios', href: configUsers() },
                   { title: 'Roles y permisos', href: configRoles() },
               ]
+            : []),
+        ...(puede('catalogos.gestionar')
+            ? [{ title: 'Catálogos', href: configCatalogos() }]
             : []),
     ];
 
@@ -82,6 +97,22 @@ export function AppSidebar() {
                         </SidebarMenuItem>
                     </SidebarMenu>
                 </SidebarGroup>
+
+                {directorioItems.length > 0 && (
+                    <SidebarGroup className="px-2 py-0">
+                        <SidebarMenu>
+                            <GrupoNav
+                                grupo={{
+                                    title: 'Directorio',
+                                    icon: Contact,
+                                    visible: true,
+                                    items: directorioItems,
+                                }}
+                                isCurrentUrl={isCurrentUrl}
+                            />
+                        </SidebarMenu>
+                    </SidebarGroup>
+                )}
             </SidebarContent>
 
             <SidebarFooter>

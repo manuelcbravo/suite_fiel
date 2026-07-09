@@ -23,6 +23,8 @@ enum Rol: string
         return match ($this) {
             self::Administrador => [
                 Permiso::UsuariosGestionar,
+                Permiso::CatalogosGestionar,
+                Permiso::DirectorioGestionar,
             ],
         };
     }
