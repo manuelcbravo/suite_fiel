@@ -32,6 +32,7 @@ class UpsertOrganizacionRequest extends FormRequest
             'telefono' => $texto,
             'celular' => $texto,
             'correo' => $texto,
+            'foto' => ['nullable', 'string'],
         ];
     }
 }

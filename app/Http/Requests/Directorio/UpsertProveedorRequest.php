@@ -19,7 +19,7 @@ class UpsertProveedorRequest extends FormRequest
             'id' => ['nullable', 'integer', 'exists:tbl_proveedores,id'],
             'nombre' => ['required', 'string', 'max:255'],
             'rfc' => ['nullable', 'string', 'max:20'],
-            'rep_legal' => $texto,
+            'representante_id' => ['nullable', 'integer', Rule::exists('tbl_beneficiarios', 'id')],
             'especialidad' => $texto,
             'tipo' => ['nullable', 'integer'],
             'calificacion' => ['nullable', 'integer', 'min:0', 'max:10'],
@@ -35,6 +35,7 @@ class UpsertProveedorRequest extends FormRequest
             'telefono' => $texto,
             'celular' => $texto,
             'correo' => $texto,
+            'foto' => ['nullable', 'string'],
         ];
     }
 }

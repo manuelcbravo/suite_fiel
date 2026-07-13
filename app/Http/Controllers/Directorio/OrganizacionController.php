@@ -97,4 +97,24 @@ class OrganizacionController extends Controller
 
         return back()->with('success', 'Organización eliminada correctamente.');
     }
+
+    /**
+     * Búsqueda ligera para selectores (p. ej. solicitante en Gestión).
+     */
+    public function buscar(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $busqueda = $request->string('busqueda')->trim()->toString();
+
+        $resultados = Organizacion::query()
+            ->when($busqueda !== '', fn (Builder $q) => $q->whereLike('nombre', "%{$busqueda}%"))
+            ->orderBy('nombre')
+            ->limit(20)
+            ->get(['id', 'nombre'])
+            ->map(fn (Organizacion $o): array => [
+                'id' => $o->id,
+                'nombre' => $o->nombre,
+            ]);
+
+        return response()->json($resultados);
+    }
 }

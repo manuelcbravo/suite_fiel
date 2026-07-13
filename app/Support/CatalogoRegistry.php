@@ -2,9 +2,16 @@
 
 namespace App\Support;
 
+use App\Models\CatAccion;
 use App\Models\CatArea;
+use App\Models\CatConcepto;
 use App\Models\CatDependencia;
 use App\Models\CatEje;
+use App\Models\CatNivelViolencia;
+use App\Models\CatOrigenDenuncia;
+use App\Models\CatRubro;
+use App\Models\CatSegSector;
+use App\Models\CatTipoIncidencia;
 use App\Models\CatEstadoCivil;
 use App\Models\CatOcupacion;
 use App\Models\CatOrigenRecurso;
@@ -13,6 +20,7 @@ use App\Models\CatProfesion;
 use App\Models\CatSector;
 use App\Models\CatSectorOrganizacion;
 use App\Models\CatSubeje;
+use App\Models\CatTipoEvento;
 use App\Models\CatUnidadMedida;
 use Illuminate\Database\Eloquent\Model;
 
@@ -110,6 +118,49 @@ class CatalogoRegistry
                     $texto('nombre', 'Nombre'),
                     ['name' => 'eje_id', 'label' => 'Eje', 'type' => 'select', 'required' => false, 'options' => CatEje::class],
                 ],
+            ],
+            'rubros' => [
+                'label' => 'Rubros',
+                'model' => CatRubro::class,
+                'campos' => [$texto('nombre', 'Nombre')],
+            ],
+            'conceptos' => [
+                'label' => 'Conceptos',
+                'model' => CatConcepto::class,
+                'campos' => [$texto('nombre', 'Nombre')],
+            ],
+            'acciones' => [
+                'label' => 'Acciones',
+                'model' => CatAccion::class,
+                'campos' => [$texto('nombre', 'Nombre')],
+            ],
+            'tipos_evento' => [
+                'label' => 'Tipos de evento (agenda)',
+                'model' => CatTipoEvento::class,
+                'campos' => [
+                    $texto('nombre', 'Nombre'),
+                    ['name' => 'color', 'label' => 'Color (hex)', 'type' => 'text', 'required' => false],
+                ],
+            ],
+            'seg_sectores' => [
+                'label' => 'Sectores de seguridad',
+                'model' => CatSegSector::class,
+                'campos' => [$texto('nombre', 'Nombre')],
+            ],
+            'origenes_denuncia' => [
+                'label' => 'Orígenes de denuncia',
+                'model' => CatOrigenDenuncia::class,
+                'campos' => [$texto('nombre', 'Nombre')],
+            ],
+            'tipos_incidencia' => [
+                'label' => 'Tipos de incidencia',
+                'model' => CatTipoIncidencia::class,
+                'campos' => [$texto('nombre', 'Nombre')],
+            ],
+            'niveles_violencia' => [
+                'label' => 'Niveles de violencia',
+                'model' => CatNivelViolencia::class,
+                'campos' => [$texto('nombre', 'Nombre')],
             ],
         ];
     }

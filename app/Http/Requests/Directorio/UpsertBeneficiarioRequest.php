@@ -58,6 +58,7 @@ class UpsertBeneficiarioRequest extends FormRequest
             'conyuge_movil' => $texto,
             'conyuge_nacimiento' => ['nullable', 'date'],
             'estatus' => ['nullable', 'integer'],
+            'foto' => ['nullable', 'string'],
         ];
     }
 }

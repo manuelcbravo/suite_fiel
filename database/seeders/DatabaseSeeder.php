@@ -19,6 +19,12 @@ class DatabaseSeeder extends Seeder
         $this->call(RoleSeeder::class);
         $this->call(CatalogosSeeder::class);
         $this->call(DirectorioSeeder::class);
+        $this->call(GestionSeeder::class);
+        $this->call(AgendaSeeder::class);
+        $this->call(InvitacionesSeeder::class);
+        $this->call(NotasSeeder::class);
+        $this->call(AjustesDatosSeeder::class);
+        $this->call(SeguridadSeeder::class);
 
         $admin = User::query()->where('email', 'admin@fielgroup.com.mx')->first()
             ?? User::factory()->create([

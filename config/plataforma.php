@@ -26,4 +26,10 @@ return [
 
     'legacy_schema' => env('SUITE_LEGACY_SCHEMA', 'hgo_pachuca'),
 
+    /*
+    | Schema legacy del que provienen los datos de Seguridad (denuncias y
+    | detenidos), restaurado desde el respaldo de Actopan.
+    */
+    'legacy_schema_seguridad' => env('SUITE_LEGACY_SCHEMA_SEGURIDAD', 'hgo_actopan'),
+
 ];

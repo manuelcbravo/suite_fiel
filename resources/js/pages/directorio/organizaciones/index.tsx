@@ -1,13 +1,22 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { Building2, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
+import {
+    Building2,
+    MessageSquare,
+    MoreHorizontal,
+    Pencil,
+    Plus,
+    Trash2,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { BeneficiarioPicker } from '@/components/beneficiario-picker';
+import { ComentariosDialog } from '@/components/comentarios-dialog';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import { CrudFormDialog } from '@/components/crud-form-dialog';
 import { DataTable } from '@/components/data-table';
 import type { DataTableColumn, DataTableServer } from '@/components/data-table';
 import { FormInputField } from '@/components/form-input-field';
+import { FotoField } from '@/components/foto-field';
 import { SelectField } from '@/components/select-field';
 import { UbicacionSelects } from '@/components/ubicacion-selects';
 import { Button } from '@/components/ui/button';
@@ -51,6 +60,7 @@ const CAMPOS_INICIALES: Form = {
     telefono: '',
     celular: '',
     correo: '',
+    foto: '',
 };
 
 export default function OrganizacionesIndex({
@@ -65,6 +75,7 @@ export default function OrganizacionesIndex({
     const [formMode, setFormMode] = useState<'create' | 'edit' | null>(null);
     const [editando, setEditando] = useState<Organizacion | null>(null);
     const [eliminar, setEliminar] = useState<Organizacion | null>(null);
+    const [comentarios, setComentarios] = useState<Organizacion | null>(null);
     const form = useForm<Form>(CAMPOS_INICIALES);
     const { flash } = usePage().props;
 
@@ -97,6 +108,13 @@ export default function OrganizacionesIndex({
         datos.id = o.id;
         form.setData(datos);
         setFormMode('edit');
+
+        fetch(`/directorio/organizaciones/${o.id}/foto`, {
+            headers: { Accept: 'application/json' },
+            credentials: 'same-origin',
+        })
+            .then((r) => (r.ok ? r.json() : { foto: null }))
+            .then((d) => form.setData('foto', d.foto ?? ''));
     };
 
     const cerrar = (open: boolean) => {
@@ -173,6 +191,9 @@ export default function OrganizacionesIndex({
                         <DropdownMenuItem onClick={() => abrirEditar(row)}>
                             <Pencil className="mr-2 size-4" /> Editar
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setComentarios(row)}>
+                            <MessageSquare className="mr-2 size-4" /> Comentarios
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                             variant="destructive"
@@ -231,6 +252,11 @@ export default function OrganizacionesIndex({
                 processing={form.processing}
                 onSubmit={enviar}
             >
+                <FotoField
+                    value={(form.data.foto as string) || null}
+                    onChange={(v) => form.setData('foto', v ?? '')}
+                />
+
                 <div className="grid gap-4 sm:grid-cols-2">
                     {texto('nombre', 'Nombre')}
                     <SelectField
@@ -308,6 +334,15 @@ export default function OrganizacionesIndex({
                     });
                 }}
             />
+
+            {comentarios && (
+                <ComentariosDialog
+                    tipo="organizaciones"
+                    id={comentarios.id}
+                    nombre={comentarios.nombre}
+                    onClose={() => setComentarios(null)}
+                />
+            )}
         </>
     );
 }

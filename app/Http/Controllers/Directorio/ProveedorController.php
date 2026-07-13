@@ -19,7 +19,7 @@ class ProveedorController extends Controller
         $busqueda = $request->string('busqueda')->trim()->toString();
 
         $proveedores = Proveedor::query()
-            ->with(['estado:id,nombre', 'municipio:id,nombre', 'localidad:id,nombre'])
+            ->with(['estado:id,nombre', 'municipio:id,nombre', 'localidad:id,nombre', 'representante:id,nombre,paterno,materno'])
             ->when($busqueda !== '', fn (Builder $q) => $q->where(fn (Builder $sub) => $sub
                 ->whereLike('nombre', "%{$busqueda}%")
                 ->orWhereLike('rfc', "%{$busqueda}%")
@@ -33,7 +33,8 @@ class ProveedorController extends Controller
                 'id' => $p->id,
                 'nombre' => $p->nombre,
                 'rfc' => $p->rfc,
-                'rep_legal' => $p->rep_legal,
+                'representante_id' => $p->representante_id,
+                'representante_nombre' => $p->representante?->nombreCompleto(),
                 'especialidad' => $p->especialidad,
                 'tipo' => $p->tipo,
                 'calificacion' => $p->calificacion,
