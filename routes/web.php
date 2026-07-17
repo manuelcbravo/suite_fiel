@@ -21,7 +21,9 @@ use App\Http\Controllers\Seguridad\DetenidoController;
 use App\Http\Controllers\Tableros\TableroController;
 use Illuminate\Support\Facades\Route;
 
-Route::inertia('/', 'welcome')->name('home');
+Route::get('/', function () {
+    return redirect()->route('login');
+})->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     // El dashboard raíz redirige al primer tablero disponible.
