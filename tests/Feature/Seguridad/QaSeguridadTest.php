@@ -217,10 +217,14 @@ it('D-13 genera la ficha del detenido con bytes UTF-8 inválidos sin perder el n
         'nombre' => "PEDRO\x80", 'paterno' => 'SILVA',
     ]);
 
-    $r = $this->get(route('seguridad.detenidos.pdf', $detenido));
+    $this->get(route('seguridad.detenidos.pdf', $detenido))->assertOk();
 
-    $r->assertOk();
-    expect($r->streamedContent() ?: $r->getContent())->toContain('SILVA');
+    // El contenido del PDF viaja comprimido, así que se comprueba la
+    // conversión directamente: el byte inválido se descarta y el resto del
+    // nombre sobrevive (antes `iconv()` devolvía false y se perdía todo).
+    $texto = (new App\Support\ActaPdf('P', 'mm', 'A4'))->texto("PEDRO\x80 SILVA");
+
+    expect($texto)->toContain('SILVA')->toContain('PEDRO');
 });
 
 it('D-14 genera el PDF de la denuncia con un texto muy largo sin palabras', function () {

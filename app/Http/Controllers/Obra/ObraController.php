@@ -23,6 +23,7 @@ use App\Support\EstimacionesObra;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -173,9 +174,15 @@ class ObraController extends Controller
     {
         abort_unless(isset(Obra::ETAPAS[$etapa]), 404);
 
+        // Los campos vacíos del formulario llegan como '' y hay que tratarlos
+        // como "sin dato" antes de validar, o una fecha borrada se leería como
+        // fecha inválida.
+        $request->merge(['datos' => $this->datosNormalizados($request)]);
+
         $data = $request->validate([
             'completo' => ['boolean'],
             'datos' => ['array'],
+            ...$this->reglasDatos($etapa),
             'documentos' => ['array'],
             'documentos.*.clave' => ['required', 'string'],
             'documentos.*.presente' => ['nullable', 'boolean'],
@@ -211,6 +218,48 @@ class ObraController extends Controller
         $obra->update(["{$etapa}_completo" => (bool) ($data['completo'] ?? false)]);
 
         return back()->with('success', Obra::ETAPAS[$etapa].' actualizada.');
+    }
+
+    /**
+     * Los `datos` del formulario con los vacíos convertidos a null.
+     *
+     * @return array<string,mixed>
+     */
+    private function datosNormalizados(Request $request): array
+    {
+        /** @var array<string,mixed> $datos */
+        $datos = (array) $request->input('datos', []);
+
+        return array_map(function ($valor) {
+            $valor = is_string($valor) ? trim($valor) : $valor;
+
+            return $valor === '' ? null : $valor;
+        }, $datos);
+    }
+
+    /**
+     * Reglas de validación de los campos de la etapa, derivadas del propio
+     * catálogo: una fecha tiene que ser una fecha y una lista de opciones sólo
+     * acepta sus claves. Sin esto un texto cualquiera llegaba hasta el cast de
+     * Eloquent y tumbaba la petición con un 500.
+     *
+     * @return array<string, array<int, mixed>>
+     */
+    private function reglasDatos(string $etapa): array
+    {
+        $reglas = [];
+
+        foreach (CamposObra::campos($etapa) as $campo => $def) {
+            $reglas["datos.{$campo}"] = match ($def[1]) {
+                'fecha' => ['nullable', 'date'],
+                'opciones' => ['nullable', 'integer', Rule::in(array_keys(CamposObra::CATALOGOS[$def[2]] ?? []))],
+                'empresa' => ['nullable', 'integer', Rule::exists('tbl_proveedores', 'id')],
+                'area' => ['nullable', 'string'],
+                default => ['nullable', 'string', 'max:255'],
+            };
+        }
+
+        return $reglas;
     }
 
     /**
@@ -267,13 +316,29 @@ class ObraController extends Controller
             ],
             'catalogos' => EstimacionesObra::CATALOGOS,
             'documentos' => EstimacionesObra::DOCUMENTOS,
+            // El orden es por el número de estimación leído como número (la 10
+            // va después de la 9), y las que no traen número van al final. Se
+            // ordena en PHP —son unas decenas por obra— para no atar el
+            // endpoint a la sintaxis de un motor de base de datos concreto.
             'estimaciones' => $obra->estimaciones()
-                ->orderByRaw("NULLIF(regexp_replace(num_estimacion, '[^0-9]', '', 'g'), '')::int NULLS LAST")
                 ->orderBy('id')
                 ->get()
+                ->sortBy(fn (ObraEstimacion $e): array => [
+                    $this->ordenEstimacion($e->num_estimacion),
+                    $e->id,
+                ])
                 ->map(fn (ObraEstimacion $e): array => $this->filaEstimacion($e))
+                ->values()
                 ->all(),
         ];
+    }
+
+    /** Los dígitos del número de estimación; sin ellos, va al final. */
+    private function ordenEstimacion(?string $num): int
+    {
+        $digitos = preg_replace('/\D+/', '', (string) $num);
+
+        return $digitos === '' || $digitos === null ? PHP_INT_MAX : (int) $digitos;
     }
 
     public function guardarEstimacion(UpsertEstimacionRequest $request, Obra $obra): RedirectResponse

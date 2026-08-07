@@ -143,8 +143,7 @@ class ReporteController extends Controller
     private function filtrosAgenda(Request $request): array
     {
         return [
-            'desde' => $request->date('desde')?->toDateString(),
-            'hasta' => $request->date('hasta')?->toDateString(),
+            ...$this->rangoFechas($request),
             'tipo_evento_id' => $request->integer('tipo_evento_id') ?: null,
             'confirmado' => $this->tri($request, 'confirmado'),
             'discurso' => $this->tri($request, 'discurso'),
@@ -803,8 +802,7 @@ class ReporteController extends Controller
         $vista = isset(self::VISTAS_GESTION[$vista]) ? $vista : 'detalle';
 
         return [
-            'desde' => $request->date('desde')?->toDateString(),
-            'hasta' => $request->date('hasta')?->toDateString(),
+            ...$this->rangoFechas($request),
             'estatus' => array_values(array_filter(
                 array_map('intval', $estatusArr),
                 fn ($v) => $v >= 0 && $v <= 6,
@@ -1190,8 +1188,7 @@ class ReporteController extends Controller
         };
 
         return [
-            'desde' => $request->date('desde')?->toDateString(),
-            'hasta' => $request->date('hasta')?->toDateString(),
+            ...$this->rangoFechas($request),
             'origenes' => $lista('origenes'),
             'delitos' => $lista('delitos'),
             'niveles' => $lista('niveles'),
@@ -1216,6 +1213,28 @@ class ReporteController extends Controller
      * @param  list<string>  $porOmision
      * @return list<string>
      */
+    /**
+     * Rango de fechas del filtro, ya validado.
+     *
+     * `Request::date()` revienta con una excepción si el valor no se puede
+     * parsear, así que primero se valida: una fecha mal escrita en la URL
+     * tiene que devolver un error de campo, no un 500.
+     *
+     * @return array{desde: ?string, hasta: ?string}
+     */
+    private function rangoFechas(Request $request): array
+    {
+        $request->validate([
+            'desde' => ['nullable', 'date'],
+            'hasta' => ['nullable', 'date'],
+        ]);
+
+        return [
+            'desde' => $request->date('desde')?->toDateString(),
+            'hasta' => $request->date('hasta')?->toDateString(),
+        ];
+    }
+
     private function columnasPedidas(Request $request, array $catalogo, array $porOmision): array
     {
         $raw = $request->input('columnas');

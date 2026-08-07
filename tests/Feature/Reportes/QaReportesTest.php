@@ -46,29 +46,39 @@ it('E-01 abre el reporte de agenda', function () {
 });
 
 // ---------------------------------------------------------------------------
-// E-02..E-05 · TABLEROS: ninguno tiene prueba hoy salvo el de obra
+// E-02..E-05 · TABLEROS
+//
+// Ejecutivo, Gestión y Financiero agregan con SQL exclusivo de PostgreSQL
+// (`DISTINCT ON`, `count(*) filter`, `::numeric`, `~`, `CURRENT_DATE +
+// INTERVAL`), así que sólo se pueden ejercitar contra ese motor. Se marcan
+// igual que la vista General de `GestionVistasTest` para que quede explícito
+// que no corren en SQLite, en vez de fallar sin explicación.
 // ---------------------------------------------------------------------------
+
+$soloPostgres = fn () => \Illuminate\Support\Facades\DB::connection()->getDriverName() !== 'pgsql'
+    ? 'El tablero agrega con SQL exclusivo de PostgreSQL.'
+    : false;
 
 it('E-02 abre el tablero ejecutivo', function () {
     $this->actingAs(qaUsuarioReportes());
     qaSolicitudReporte();
 
     $this->get(route('tableros.ejecutivo'))->assertOk();
-});
+})->skip($soloPostgres);
 
 it('E-03 abre el tablero de gestión', function () {
     $this->actingAs(qaUsuarioReportes());
     qaSolicitudReporte();
 
     $this->get(route('tableros.gestion'))->assertOk();
-});
+})->skip($soloPostgres);
 
 it('E-04 abre el tablero financiero', function () {
     $this->actingAs(qaUsuarioReportes());
     qaSolicitudReporte();
 
     $this->get(route('tableros.financiero'))->assertOk();
-});
+})->skip($soloPostgres);
 
 it('E-05 abre el tablero de seguridad', function () {
     $this->actingAs(qaUsuarioReportes());

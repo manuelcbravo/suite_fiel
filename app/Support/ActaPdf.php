@@ -107,9 +107,22 @@ class ActaPdf extends Fpdf
         $this->SetDrawColor(0);
     }
 
-    /** FPDF escribe en ISO-8859-1; sin esto los acentos salen rotos. */
+    /**
+     * FPDF escribe en ISO-8859-1; sin esto los acentos salen rotos.
+     *
+     * Lo que no cabe en latin-1 (emojis, capturas con bytes corruptos) se
+     * descarta en vez de reventar: `//TRANSLIT` sin `//IGNORE` levanta un
+     * E_WARNING que Laravel convierte en excepción, y la ficha entera se caía
+     * por un solo carácter del nombre.
+     */
     public function texto(?string $valor): string
     {
-        return (string) iconv('UTF-8', 'ISO-8859-1//TRANSLIT', trim((string) $valor));
+        $limpio = trim((string) $valor);
+
+        // Se descartan primero los bytes que no son UTF-8 válido; si no,
+        // iconv aborta la conversión completa y devuelve false.
+        $limpio = mb_convert_encoding($limpio, 'UTF-8', 'UTF-8');
+
+        return (string) iconv('UTF-8', 'ISO-8859-1//TRANSLIT//IGNORE', $limpio);
     }
 }
