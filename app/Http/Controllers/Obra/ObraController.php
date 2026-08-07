@@ -287,7 +287,7 @@ class ObraController extends Controller
         foreach (CamposObra::campos($etapa) as $campo => $def) {
             $reglas["datos.{$campo}"] = match ($def[1]) {
                 'fecha' => ['nullable', 'date'],
-                'opciones' => ['nullable', 'integer', Rule::in(array_keys(CamposObra::CATALOGOS[$def[2]] ?? []))],
+                'opciones' => ['nullable', 'integer', Rule::in(array_keys(CamposObra::CATALOGOS[$def[2] ?? ''] ?? []))],
                 'empresa' => ['nullable', 'integer', Rule::exists('tbl_proveedores', 'id')],
                 'area' => ['nullable', 'string'],
                 default => ['nullable', 'string', 'max:255'],

@@ -61,9 +61,22 @@ class Solicitud extends Model
         static::saving(function (self $solicitud): void {
             $digitos = preg_replace('/\D+/', '', (string) $solicitud->folio_sistema);
 
-            $solicitud->folio_num = $digitos === '' || $digitos === null
-                ? $solicitud->id
-                : (int) $digitos;
+            if ($digitos === '' || $digitos === null) {
+                // Sin cifras en el folio se cae al id, que es el consecutivo
+                // que `store()` acaba escribiendo de todas formas.
+                // `getKey()` porque en un alta todavía no hay id: queda null y
+                // el segundo guardado de `store()` lo completa.
+                $id = $solicitud->getKey();
+                $solicitud->folio_num = is_int($id) && $id >= 0 ? $id : null;
+
+                return;
+            }
+
+            $numero = (int) $digitos;
+
+            // La columna no lleva signo; `$digitos` sólo trae cifras, así que
+            // el caso negativo no ocurre, pero se acota igualmente.
+            $solicitud->folio_num = $numero >= 0 ? $numero : 0;
         });
     }
 

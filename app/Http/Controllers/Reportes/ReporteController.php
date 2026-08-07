@@ -1205,15 +1205,6 @@ class ReporteController extends Controller
 
     // ============================================================= Utilidades
     /**
-     * Columnas pedidas, filtradas contra el catálogo y devueltas **en el orden
-     * del catálogo**, no en el que se marcaron: así la tabla y el Excel salen
-     * siempre iguales. Si no se pide ninguna, van las de por omisión.
-     *
-     * @param  array<string,string>  $catalogo
-     * @param  list<string>  $porOmision
-     * @return list<string>
-     */
-    /**
      * Rango de fechas del filtro, ya validado.
      *
      * `Request::date()` revienta con una excepción si el valor no se puede
@@ -1235,6 +1226,15 @@ class ReporteController extends Controller
         ];
     }
 
+    /**
+     * Columnas pedidas, filtradas contra el catálogo y devueltas **en el orden
+     * del catálogo**, no en el que se marcaron: así la tabla y el Excel salen
+     * siempre iguales. Si no se pide ninguna, van las de por omisión.
+     *
+     * @param  array<string,string>  $catalogo
+     * @param  list<string>  $porOmision
+     * @return list<string>
+     */
     private function columnasPedidas(Request $request, array $catalogo, array $porOmision): array
     {
         $raw = $request->input('columnas');

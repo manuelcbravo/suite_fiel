@@ -159,6 +159,7 @@ class Obra extends Model
         return $this->hasMany(ObraCosto::class, 'obra_id');
     }
 
+    /** @return HasMany<ObraEstimacion, $this> */
     public function estimaciones(): HasMany
     {
         return $this->hasMany(ObraEstimacion::class, 'obra_id');

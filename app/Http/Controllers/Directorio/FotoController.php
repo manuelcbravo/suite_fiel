@@ -84,7 +84,7 @@ class FotoController extends Controller
         // contenido real antes de servirlo.
         $medidas = @getimagesizefromstring($binario);
 
-        abort_if($medidas === false || ! isset(self::FORMATOS[$medidas['mime'] ?? '']), 404);
+        abort_if($medidas === false || ! isset(self::FORMATOS[$medidas['mime']]), 404);
 
         return response($binario, 200, [
             'Content-Type' => $medidas['mime'],
