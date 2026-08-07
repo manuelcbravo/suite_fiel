@@ -34,7 +34,10 @@ class AtenderSolicitudRequest extends FormRequest
             'municipio_resp_id' => ['nullable', 'integer', Rule::exists('cat_municipios', 'id')],
             'localidad_resp_id' => ['nullable', 'integer', Rule::exists('cat_localidades', 'id')],
             'folio_resp' => $texto,
-            'fecha_resp' => $texto,
+            // Es la fecha con la que se cierra la solicitud: si no es una
+            // fecha de verdad, `capturaCompleta()` la da por buena y el
+            // expediente queda cerrado con un texto cualquiera.
+            'fecha_resp' => ['nullable', 'date'],
         ];
     }
 }

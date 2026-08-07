@@ -29,7 +29,6 @@ enum Rol: string
                 Permiso::AgendaGestionar,
                 Permiso::InvitacionesGestionar,
                 Permiso::NotasGestionar,
-                Permiso::ReportesVer,
                 Permiso::ReporteAgenda,
                 Permiso::ReporteDirectorio,
                 Permiso::ReporteGestion,

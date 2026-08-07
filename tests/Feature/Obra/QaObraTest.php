@@ -185,8 +185,10 @@ it('B-10 revierte los datos de la etapa si falla el guardado de documentos', fun
     $this->actingAs(qaUsuarioObra());
     $obra = qaObra(qaSolicitudObra());
 
-    DB::listen(function ($query): void {
-        if (str_contains($query->sql, 'tbl_obra_documentos')) {
+    $sabotaje = true;
+
+    DB::listen(function ($query) use (&$sabotaje): void {
+        if ($sabotaje && str_contains($query->sql, 'tbl_obra_documentos')) {
             throw new RuntimeException('fallo simulado al guardar los acuses');
         }
     });
@@ -198,6 +200,8 @@ it('B-10 revierte los datos de la etapa si falla el guardado de documentos', fun
         ]);
     } catch (Throwable) {
         // El fallo es el escenario; se evalúa el estado de la BD.
+    } finally {
+        $sabotaje = false;
     }
 
     expect($obra->fresh()->autorizacion)->toBeNull();

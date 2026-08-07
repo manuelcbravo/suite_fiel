@@ -51,6 +51,22 @@ class Solicitud extends Model
         ];
     }
 
+    /**
+     * `folio_num` es el folio de sistema como entero, para poder ordenar el
+     * expediente por número y no alfabéticamente. Se deriva solo: nadie lo
+     * captura ni viaja en los formularios.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (self $solicitud): void {
+            $digitos = preg_replace('/\D+/', '', (string) $solicitud->folio_sistema);
+
+            $solicitud->folio_num = $digitos === '' || $digitos === null
+                ? $solicitud->id
+                : (int) $digitos;
+        });
+    }
+
     public function solicitante(): MorphTo
     {
         return $this->morphTo();

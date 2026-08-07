@@ -74,18 +74,22 @@ class InvitacionController extends Controller
     }
 
     /**
-     * Registra (y da por enviada) una notificación por correo. El envío real
-     * por SMTP queda pendiente de configuración de correo.
+     * Registra una notificación por correo.
+     *
+     * El envío real por SMTP sigue pendiente de configuración, así que
+     * `enviado_en` se deja vacío: marcarlo con `now()` hacía que el historial
+     * dijera "enviado" de correos que nunca salieron. El sello se pondrá
+     * cuando exista el envío de verdad.
      */
     public function notificar(StoreCorreoRequest $request, Invitacion $invitacion): RedirectResponse
     {
         $invitacion->correos()->create([
             'correos' => $request->validated()['correos'],
             'mensaje' => $request->validated()['mensaje'] ?? null,
-            'enviado_en' => now(),
+            'enviado_en' => null,
         ]);
 
-        return back()->with('success', 'Notificación registrada.');
+        return back()->with('success', 'Destinatarios registrados. El envío por correo está pendiente de configuración.');
     }
 
     /**

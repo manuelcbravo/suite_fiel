@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -248,7 +249,9 @@ class SolicitudController extends Controller
             ->tap(fn (Builder $s) => $this->filtrarSolicitudes($s, $estatus, $dependenciaId))
             ->with(['concepto:id,nombre', 'municipioResp:id,nombre', 'rubros:id', 'sectores:id'])
             ->withCount('seguimientos')
-            ->orderByDesc('folio_sistema')
+            // Por `folio_num`, no por `folio_sistema`: la columna es texto y
+            // ordenada como tal la solicitud 9 quedaba por encima de la 10.
+            ->orderByDesc('folio_num')
             ->orderByDesc('id')
             ->skip($desde)
             ->take(self::POR_EXPEDIENTE)
@@ -353,10 +356,20 @@ class SolicitudController extends Controller
      */
     public function atender(AtenderSolicitudRequest $request, Solicitud $solicitud): RedirectResponse
     {
+        // Todo lo que sigue mueve varias tablas (solicitud, pivotes de rubro y
+        // sector, seguimiento). Fuera de una transacción, un fallo a medias
+        // dejaba la solicitud cerrada sin rubros ni respuesta registrada.
+        return DB::transaction(function () use ($request, $solicitud): RedirectResponse {
+            return $this->registrarAtencion($request, $solicitud);
+        });
+    }
+
+    private function registrarAtencion(AtenderSolicitudRequest $request, Solicitud $solicitud): RedirectResponse
+    {
         $data = $request->validated();
         $decision = $data['decision'];
 
-        $seguimiento = $solicitud->seguimientos()->latest('id')->first();
+        $seguimiento = $solicitud->seguimientos()->lockForUpdate()->latest('id')->first();
 
         if ($decision !== 'resolver') {
             // Respuesta temporal / atención rápida: sólo localidad, fecha y concepto.
@@ -451,6 +464,11 @@ class SolicitudController extends Controller
     }
 
     public function store(UpsertSolicitudRequest $request): RedirectResponse
+    {
+        return DB::transaction(fn (): RedirectResponse => $this->guardarSolicitud($request));
+    }
+
+    private function guardarSolicitud(UpsertSolicitudRequest $request): RedirectResponse
     {
         $data = $request->validated();
         $rubros = $data['rubros'] ?? [];

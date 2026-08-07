@@ -16,6 +16,8 @@ use App\Models\Detenido;
 use App\Models\Solicitud;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Route;
+use OwenIt\Auditing\Contracts\Auditable;
 use Spatie\Permission\Models\Permission;
 
 uses(RefreshDatabase::class);
@@ -89,10 +91,21 @@ it('G-04 no deja solicitudes apuntando a un catálogo que ya no existe', functio
 
     $this->delete(route('config.catalogos.destroy', ['catalogo' => 'conceptos', 'id' => $concepto->id]));
 
-    // El catálogo usa SoftDeletes: la FK nunca se dispara y la solicitud
-    // conserva un `concepto_id` que ya no resuelve en ninguna pantalla.
-    expect($solicitud->fresh()->concepto)->toBeNull()
-        ->and($solicitud->fresh()->concepto_id)->toBeNull();
+    // El invariante es que `concepto_id` siempre resuelva. Con SoftDeletes en
+    // el catálogo la FK nunca se dispara, así que el borrado se bloquea
+    // mientras haya expedientes usándolo.
+    expect($solicitud->fresh()->concepto)->not->toBeNull();
+});
+
+it('G-04b sí deja borrar un catálogo que no usa nadie', function () {
+    $this->actingAs(qaSuperAdmin());
+
+    $concepto = CatConcepto::query()->create(['nombre' => 'SIN USO']);
+
+    $this->delete(route('config.catalogos.destroy', ['catalogo' => 'conceptos', 'id' => $concepto->id]))
+        ->assertSessionHasNoErrors();
+
+    expect(CatConcepto::query()->whereKey($concepto->id)->exists())->toBeFalse();
 });
 
 // ---------------------------------------------------------------------------
@@ -102,9 +115,9 @@ it('G-04 no deja solicitudes apuntando a un catálogo que ya no existe', functio
 it('G-05 audita los modelos sensibles', function () {
     // `owen-it/laravel-auditing` está en composer.json pero ningún modelo lo
     // implementa: no queda rastro de quién borró una denuncia o un detenido.
-    expect(new Denuncia)->toBeInstanceOf(OwenIt\Auditing\Contracts\Auditable::class)
-        ->and(new Detenido)->toBeInstanceOf(OwenIt\Auditing\Contracts\Auditable::class)
-        ->and(new Solicitud)->toBeInstanceOf(OwenIt\Auditing\Contracts\Auditable::class);
+    expect(new Denuncia)->toBeInstanceOf(Auditable::class)
+        ->and(new Detenido)->toBeInstanceOf(Auditable::class)
+        ->and(new Solicitud)->toBeInstanceOf(Auditable::class);
 });
 
 // ---------------------------------------------------------------------------
@@ -112,7 +125,7 @@ it('G-05 audita los modelos sensibles', function () {
 // ---------------------------------------------------------------------------
 
 it('G-06 todo permiso declarado se usa en alguna ruta', function () {
-    $usados = collect(Illuminate\Support\Facades\Route::getRoutes()->getRoutes())
+    $usados = collect(Route::getRoutes()->getRoutes())
         ->flatMap(fn ($r) => $r->gatherMiddleware())
         ->filter(fn ($m) => is_string($m) && str_starts_with($m, 'can:'))
         ->map(fn ($m) => substr($m, 4))
@@ -124,10 +137,12 @@ it('G-06 todo permiso declarado se usa en alguna ruta', function () {
     expect($huerfanos)->toBe([]);
 });
 
-it('G-07 el permiso de ver reportes sirve para ver algún reporte', function () {
-    $this->actingAs(qaConPermiso(Permiso::ReportesVer->value));
+it('G-07 cada permiso de reporte abre su reporte', function () {
+    $this->actingAs(qaConPermiso(Permiso::ReporteAgenda->value));
 
     $this->get(route('reportes.agenda'))->assertOk();
+    // Y sólo el suyo: no da acceso a los demás submódulos.
+    $this->get(route('reportes.gestion'))->assertForbidden();
 });
 
 // ---------------------------------------------------------------------------

@@ -8,6 +8,9 @@
  */
 
 use App\Models\Beneficiario;
+use App\Models\CatEstado;
+use App\Models\CatLocalidad;
+use App\Models\CatMunicipio;
 use App\Models\Comentario;
 use App\Models\Detenido;
 use App\Models\User;
@@ -219,12 +222,12 @@ it('C-13 no deja borrar el comentario de otro usuario', function () {
 it('C-14 acota el número de localidades que devuelve de un solo golpe', function () {
     $this->actingAs(qaUsuarioDirectorio());
 
-    $estado = \App\Models\CatEstado::query()->create(['nombre' => 'HIDALGO']);
-    $municipio = \App\Models\CatMunicipio::query()->create([
+    $estado = CatEstado::query()->create(['nombre' => 'HIDALGO']);
+    $municipio = CatMunicipio::query()->create([
         'clave' => 48, 'nombre' => 'PACHUCA', 'estado_id' => $estado->id,
     ]);
     foreach (range(1, 60) as $i) {
-        \App\Models\CatLocalidad::query()->create([
+        CatLocalidad::query()->create([
             'clave' => $i, 'nombre' => "LOCALIDAD {$i}",
             'municipio_id' => $municipio->id, 'estado_id' => $estado->id,
         ]);

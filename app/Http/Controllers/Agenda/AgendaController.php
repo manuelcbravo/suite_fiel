@@ -128,14 +128,17 @@ class AgendaController extends Controller
      * Notas (checklist) del evento. Cada evento tiene una nota única auto-creada
      * y titulada con su nombre (replica el flujo legacy calendario_notas).
      */
-    public function notas(Request $request, Evento $evento): JsonResponse
+    public function notas(Evento $evento): JsonResponse
     {
-        $nota = $this->notaDelEvento($request, $evento);
+        // Consultar no crea nada: la nota nace con el primer pendiente. Antes
+        // este GET escribía en la base, así que abrir el evento dejaba una
+        // nota vacía por cada visita.
+        $nota = Nota::query()->firstWhere('evento_id', $evento->id);
 
         return response()->json([
-            'nota_id' => $nota->id,
-            'titulo' => $nota->nota,
-            'pendientes' => $nota->pendientes()
+            'nota_id' => $nota?->id,
+            'titulo' => $nota?->nota,
+            'pendientes' => $nota === null ? [] : $nota->pendientes()
                 ->latest('id')
                 ->get(['id', 'texto', 'realizado'])
                 ->map(fn (Notita $n): array => [
@@ -171,15 +174,22 @@ class AgendaController extends Controller
     {
         $titulo = 'NOTAS DEL EVENTO: '.($evento->titulo ?: '(Sin título)');
 
-        $nota = Nota::query()->firstOrNew(['evento_id' => $evento->id]);
-        if (! $nota->exists) {
-            $nota->fecha = now()->toDateString();
-            $nota->created_by = $request->user()?->id;
-        }
+        // `firstOrCreate` (y no firstOrNew + save) para que dos peticiones
+        // simultáneas no creen dos notas del mismo evento; el índice único de
+        // `evento_id` respalda la garantía.
+        $nota = Nota::query()->firstOrCreate(
+            ['evento_id' => $evento->id],
+            [
+                'nota' => $titulo,
+                'fecha' => now()->toDateString(),
+                'created_by' => $request->user()?->id,
+            ],
+        );
+
+        // El título sigue al del evento si éste se renombró.
         if ($nota->nota !== $titulo) {
-            $nota->nota = $titulo;
+            $nota->update(['nota' => $titulo]);
         }
-        $nota->save();
 
         return $nota;
     }

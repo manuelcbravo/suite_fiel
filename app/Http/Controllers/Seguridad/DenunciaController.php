@@ -15,6 +15,7 @@ use App\Support\FichaPdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -126,6 +127,10 @@ class DenunciaController extends Controller
             'descripcion_situacion.required' => 'Describe la situación.',
             'tipo_incidencia_id.required' => 'Selecciona el presunto delito.',
         ]);
+
+        // Se guarda como `Y-m-d` igual que en el alta, para que el filtro de
+        // rango del listado —que compara texto— siga teniendo sentido.
+        $data['fecha_atencion'] = Carbon::parse($data['fecha_atencion'])->toDateString();
 
         $denuncia->fill([...$data, 'con_atencion' => true])->save();
 

@@ -79,7 +79,21 @@ class CatalogoController extends Controller
 
         /** @var class-string<Model> $model */
         $model = $def['model'];
-        $model::query()->findOrFail($id)->delete();
+        $registro = $model::query()->findOrFail($id);
+
+        // Casi todos los catálogos usan SoftDeletes, así que la FK
+        // `nullOnDelete` nunca se dispara: al borrarlos los expedientes se
+        // quedaban apuntando a un registro que ya no aparece en ninguna
+        // pantalla. Se bloquea el borrado mientras esté en uso.
+        $usos = CatalogoRegistry::usos($catalogo, $id);
+
+        if ($usos > 0) {
+            return back()->withErrors([
+                'catalogo' => "No se puede eliminar: {$usos} registro(s) lo están usando.",
+            ]);
+        }
+
+        $registro->delete();
 
         return back()->with('success', 'Registro eliminado correctamente.');
     }

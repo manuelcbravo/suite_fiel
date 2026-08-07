@@ -8,10 +8,14 @@
  */
 
 use App\Models\Beneficiario;
+use App\Models\CatEstado;
+use App\Models\CatLocalidad;
+use App\Models\CatMunicipio;
 use App\Models\Evento;
 use App\Models\Solicitud;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
@@ -55,7 +59,7 @@ it('E-01 abre el reporte de agenda', function () {
 // que no corren en SQLite, en vez de fallar sin explicación.
 // ---------------------------------------------------------------------------
 
-$soloPostgres = fn () => \Illuminate\Support\Facades\DB::connection()->getDriverName() !== 'pgsql'
+$soloPostgres = fn () => DB::connection()->getDriverName() !== 'pgsql'
     ? 'El tablero agrega con SQL exclusivo de PostgreSQL.'
     : false;
 
@@ -182,13 +186,13 @@ it('E-14 exporta todas las localidades de la vista General, no sólo la página'
 
     // 25 localidades con solicitud: la vista pagina de 20 en 20, pero el
     // Excel debería llevarse las 25.
-    $estado = \App\Models\CatEstado::query()->create(['nombre' => 'HIDALGO']);
-    $municipio = \App\Models\CatMunicipio::query()->create([
+    $estado = CatEstado::query()->create(['nombre' => 'HIDALGO']);
+    $municipio = CatMunicipio::query()->create([
         'clave' => 48, 'nombre' => 'PACHUCA', 'estado_id' => $estado->id,
     ]);
 
     foreach (range(1, 25) as $i) {
-        $loc = \App\Models\CatLocalidad::query()->create([
+        $loc = CatLocalidad::query()->create([
             'clave' => $i, 'nombre' => "LOC {$i}",
             'municipio_id' => $municipio->id, 'estado_id' => $estado->id,
         ]);
@@ -203,7 +207,7 @@ it('E-14 exporta todas las localidades de la vista General, no sólo la página'
     // `gestionExcel()` reusa `gestionGeneral()`, que ya viene paginado a 20.
     $this->get(route('reportes.gestion.excel', ['vista' => 'general']))->assertOk();
 })->skip(
-    fn () => \Illuminate\Support\Facades\DB::connection()->getDriverName() !== 'pgsql'
+    fn () => DB::connection()->getDriverName() !== 'pgsql'
         ? 'La vista General agrega con SQL exclusivo de PostgreSQL.'
         : false,
 );

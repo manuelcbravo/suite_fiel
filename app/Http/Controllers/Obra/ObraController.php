@@ -23,6 +23,7 @@ use App\Support\EstimacionesObra;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -47,43 +48,66 @@ class ObraController extends Controller
 
     public function store(UpsertObraRequest $request): RedirectResponse
     {
-        $data = $request->validated();
+        return DB::transaction(function () use ($request): RedirectResponse {
+            $data = $request->validated();
 
-        $obra = isset($data['id'])
-            ? Obra::query()->findOrFail((int) $data['id'])
-            : new Obra;
+            $obra = isset($data['id'])
+                ? Obra::query()->findOrFail((int) $data['id'])
+                : new Obra;
 
-        unset($data['id']);
+            unset($data['id']);
 
-        if (! $obra->exists) {
-            $obra->created_by = $request->user()?->id;
-        }
+            if (! $obra->exists) {
+                $obra->created_by = $request->user()?->id;
+            }
 
-        $obra->fill($data)->save();
+            // La solicitud de origen puede cambiar al corregir la ficha: hay
+            // que liberar la anterior, no sólo marcar la nueva.
+            $anterior = $obra->exists ? $obra->getOriginal('solicitud_id') : null;
 
-        // El legacy marca la solicitud como importada al crear su expediente.
-        if ($obra->wasRecentlyCreated && $obra->solicitud_id !== null) {
-            Solicitud::query()->whereKey($obra->solicitud_id)
-                ->update(['convertida_obra' => Solicitud::OBRA_IMPORTADA]);
-        }
+            $obra->fill($data)->save();
 
-        return back()->with('success', $obra->wasRecentlyCreated
-            ? 'Obra creada correctamente.'
-            : 'Ficha técnica actualizada.');
+            $this->sincronizarSolicitud($anterior);
+            $this->sincronizarSolicitud($obra->solicitud_id);
+
+            return back()->with('success', $obra->wasRecentlyCreated
+                ? 'Obra creada correctamente.'
+                : 'Ficha técnica actualizada.');
+        });
     }
 
     public function destroy(Obra $obra): RedirectResponse
     {
-        // Al borrar el expediente la solicitud vuelve a estar sin obra,
-        // igual que en `obrapublica/eliminar_obra.php`.
-        if ($obra->solicitud_id !== null) {
-            Solicitud::query()->whereKey($obra->solicitud_id)
-                ->update(['convertida_obra' => Solicitud::OBRA_NO]);
+        return DB::transaction(function () use ($obra): RedirectResponse {
+            $solicitudId = $obra->solicitud_id;
+
+            $obra->delete();
+
+            // Al borrar el expediente la solicitud vuelve a estar sin obra,
+            // igual que en `obrapublica/eliminar_obra.php`.
+            $this->sincronizarSolicitud($solicitudId);
+
+            return back()->with('success', 'Obra eliminada correctamente.');
+        });
+    }
+
+    /**
+     * Deja `convertida_obra` acorde a la realidad: importada si a la solicitud
+     * le queda al menos un expediente vivo, y sin obra si no le queda ninguno.
+     * Antes la bandera sólo se ponía al crear y sólo se quitaba al borrar, así
+     * que reasignar o borrar una de dos obras la dejaba mintiendo.
+     */
+    private function sincronizarSolicitud(?int $solicitudId): void
+    {
+        if ($solicitudId === null) {
+            return;
         }
 
-        $obra->delete();
+        $tieneObra = Obra::query()->where('solicitud_id', $solicitudId)->exists();
 
-        return back()->with('success', 'Obra eliminada correctamente.');
+        Solicitud::query()->whereKey($solicitudId)->update([
+            'convertida_obra' => $tieneObra ? Solicitud::OBRA_IMPORTADA : Solicitud::OBRA_NO,
+        ]);
     }
 
     /** La ficha técnica completa, que el listado no carga por peso. */
@@ -189,6 +213,17 @@ class ObraController extends Controller
             'documentos.*.observacion' => ['nullable', 'string'],
         ]);
 
+        // Datos de la etapa, acuses de papel y bandera de "terminada" son un
+        // solo acto: a medias dejaban el expediente en un estado que nadie
+        // capturó.
+        return DB::transaction(fn (): RedirectResponse => $this->escribirEtapa($obra, $etapa, $data));
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     */
+    private function escribirEtapa(Obra $obra, string $etapa, array $data): RedirectResponse
+    {
         $this->guardarDatosEtapa($obra, $etapa, $data['datos'] ?? []);
 
         $validas = DocumentosObra::claves($etapa);

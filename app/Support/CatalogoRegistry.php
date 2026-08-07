@@ -29,6 +29,8 @@ use App\Models\CatTipoEvento;
 use App\Models\CatTipoIncidencia;
 use App\Models\CatUnidadMedida;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Registro central de los catálogos simples administrables desde la pantalla
@@ -212,5 +214,49 @@ class CatalogoRegistry
     public static function find(string $clave): ?array
     {
         return self::all()[$clave] ?? null;
+    }
+
+    /**
+     * Cuántos registros vivos apuntan a un elemento del catálogo.
+     *
+     * Se descubre recorriendo las llaves foráneas declaradas en el esquema, en
+     * vez de mantener a mano una lista de tablas que se desincronizaría con
+     * cada módulo nuevo. Sólo se llama al eliminar, que es una operación rara.
+     */
+    public static function usos(string $clave, int $id): int
+    {
+        $def = self::find($clave);
+
+        if ($def === null) {
+            return 0;
+        }
+
+        /** @var Model $instancia */
+        $instancia = new $def['model'];
+        $tabla = $instancia->getTable();
+        $total = 0;
+
+        foreach (Schema::getTables() as $otra) {
+            $nombre = $otra['name'];
+
+            foreach (Schema::getForeignKeys($nombre) as $fk) {
+                if (($fk['foreign_table'] ?? null) !== $tabla || ($fk['columns'] ?? []) === []) {
+                    continue;
+                }
+
+                $columna = $fk['columns'][0];
+
+                $consulta = DB::table($nombre)->where($columna, $id);
+
+                // Un expediente ya borrado no cuenta como uso.
+                if (Schema::hasColumn($nombre, 'deleted_at')) {
+                    $consulta->whereNull('deleted_at');
+                }
+
+                $total += $consulta->count();
+            }
+        }
+
+        return $total;
     }
 }

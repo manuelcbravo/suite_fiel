@@ -11,6 +11,7 @@ use App\Models\Evento;
 use App\Models\Invitacion;
 use App\Models\Nota;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Spatie\Permission\Models\Permission;
@@ -128,7 +129,7 @@ it('F-07 impide dos notas para el mismo evento', function () {
 
     expect(fn () => Nota::query()->create([
         'evento_id' => $evento->id, 'nota' => 'B', 'fecha' => '2026-03-10',
-    ]))->toThrow(Illuminate\Database\QueryException::class);
+    ]))->toThrow(QueryException::class);
 });
 
 it('F-08 no deja tocar pendientes de notas sueltas desde el módulo de agenda', function () {

@@ -9,6 +9,7 @@
  */
 
 use App\Models\Beneficiario;
+use App\Models\CatArea;
 use App\Models\CatConcepto;
 use App\Models\CatDependencia;
 use App\Models\CatEstado;
@@ -210,7 +211,7 @@ it('A-08 no permite reasignar un área a un seguimiento sin dependencia (No apro
     $seguimiento = $solicitud->seguimientos()->create(['estatus' => 2]);
 
     $dependencia = CatDependencia::query()->create(['nombre' => 'OBRAS PÚBLICAS']);
-    $area = \App\Models\CatArea::query()->create(['nombre' => 'PAVIMENTOS', 'dependencia_id' => $dependencia->id]);
+    $area = CatArea::query()->create(['nombre' => 'PAVIMENTOS', 'dependencia_id' => $dependencia->id]);
 
     $this->put(route('gestion.seguimientos.reasignar', $seguimiento), ['area_id' => $area->id])
         ->assertSessionHasErrors('area_id');
@@ -229,9 +230,12 @@ it('A-09 revierte el cierre de la solicitud si falla el guardado de rubros', fun
     $solicitud->seguimientos()->create(['estatus' => 1]);
 
     // Simula un fallo de la BD justo al escribir el pivote de rubros, después
-    // de que la solicitud ya se guardó con status 5.
-    DB::listen(function ($query): void {
-        if (str_contains($query->sql, 'tbl_solicitud_rubro')) {
+    // de que la solicitud ya se guardó con status 5. El interruptor deja de
+    // sabotear en cuanto termina la petición, para poder consultar la base.
+    $sabotaje = true;
+
+    DB::listen(function ($query) use (&$sabotaje): void {
+        if ($sabotaje && str_contains($query->sql, 'tbl_solicitud_rubro')) {
             throw new RuntimeException('fallo simulado en el pivote de rubros');
         }
     });
@@ -240,6 +244,8 @@ it('A-09 revierte el cierre de la solicitud si falla el guardado de rubros', fun
         $this->post(route('gestion.solicitudes.atender', $solicitud), qaPayloadResolver($cat));
     } catch (Throwable) {
         // El fallo es el escenario; lo que se evalúa es el estado de la BD.
+    } finally {
+        $sabotaje = false;
     }
 
     // Sin transacción, la solicitud queda "Atendida" pero sin rubros/sectores

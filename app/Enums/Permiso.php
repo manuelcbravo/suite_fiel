@@ -32,8 +32,9 @@ enum Permiso: string
     // Notas (Módulo 5).
     case NotasGestionar = 'notas.gestionar';
 
-    // Reportes (Módulo 8): submódulos independientes con filtros.
-    case ReportesVer = 'reportes.ver';
+    // Reportes (Módulo 8): submódulos independientes con filtros. Cada uno
+    // tiene su propio permiso; no hay uno general de "ver reportes" porque no
+    // protegía ninguna ruta y sólo confundía la pantalla de roles.
     case ReporteAgenda = 'reportes.agenda';
     case ReporteDirectorio = 'reportes.directorio';
     case ReporteGestion = 'reportes.gestion';
@@ -64,7 +65,6 @@ enum Permiso: string
             self::AgendaGestionar => 'Gestionar agenda',
             self::InvitacionesGestionar => 'Gestionar invitaciones',
             self::NotasGestionar => 'Gestionar notas',
-            self::ReportesVer => 'Ver reportes',
             self::ReporteAgenda => 'Reporte de agenda',
             self::ReporteDirectorio => 'Reporte de directorio',
             self::ReporteGestion => 'Reporte de gestión',

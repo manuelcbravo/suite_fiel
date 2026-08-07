@@ -11,6 +11,7 @@ use App\Models\CatTipoIncidencia;
 use App\Models\Denuncia;
 use App\Models\Detenido;
 use App\Models\User;
+use App\Support\ActaPdf;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -163,12 +164,18 @@ it('D-09 rechaza una fecha de denuncia que no es una fecha', function () {
 it('D-10 filtra el rango de fechas por fecha real, no por orden alfabético', function () {
     $this->actingAs(qaUsuarioSeguridad());
 
-    // `fecha_denuncia` es una columna de texto libre: si el capturista usa
-    // dd/mm/aaaa el filtro compara cadenas y el rango deja de tener sentido.
-    qaDenuncia(['denuncia' => 'ENERO', 'fecha_denuncia' => '15/01/2026']);
-    qaDenuncia(['denuncia' => 'MARZO', 'fecha_denuncia' => '01/03/2026']);
+    // `fecha_denuncia` es una columna de texto y el filtro compara cadenas:
+    // si el capturista teclea dd/mm/aaaa, el alta tiene que normalizarlo a
+    // Y-m-d o el rango deja de significar nada.
+    $this->post(route('seguridad.denuncias.store'), [
+        'denuncia' => 'ENERO', 'fecha_denuncia' => '15/01/2026',
+    ])->assertSessionHasNoErrors();
 
-    $r = $this->get(route('seguridad.denuncias.index', ['ini' => '01/02/2026', 'fin' => '31/12/2026']));
+    $this->post(route('seguridad.denuncias.store'), [
+        'denuncia' => 'MARZO', 'fecha_denuncia' => '01/03/2026',
+    ])->assertSessionHasNoErrors();
+
+    $r = $this->get(route('seguridad.denuncias.index', ['ini' => '2026-02-01', 'fin' => '2026-12-31']));
 
     $r->assertOk()->assertInertia(fn ($page) => $page
         ->has('denuncias', 1)
@@ -222,7 +229,7 @@ it('D-13 genera la ficha del detenido con bytes UTF-8 inválidos sin perder el n
     // El contenido del PDF viaja comprimido, así que se comprueba la
     // conversión directamente: el byte inválido se descarta y el resto del
     // nombre sobrevive (antes `iconv()` devolvía false y se perdía todo).
-    $texto = (new App\Support\ActaPdf('P', 'mm', 'A4'))->texto("PEDRO\x80 SILVA");
+    $texto = (new ActaPdf('P', 'mm', 'A4'))->texto("PEDRO\x80 SILVA");
 
     expect($texto)->toContain('SILVA')->toContain('PEDRO');
 });
