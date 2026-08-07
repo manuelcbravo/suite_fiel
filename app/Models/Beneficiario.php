@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'telefono', 'celular', 'celular2', 'correo', 'correo2', 'facebook', 'twitter',
     'empresa', 'puesto', 'tel_empresa', 'ocupacion_id', 'profesion_id', 'ocupacion_texto',
     'sector_id', 'grupo', 'vinculo_municipal', 'vinculo_estatal', 'vinculo_federal',
+    'seccion', 'filiacion_id', 'antagonico_id', 'lider_id', 'influencia_id',
     'asist_nombre', 'asist_movil', 'asist_correo',
     'conyuge_nombre', 'conyuge_movil', 'conyuge_nacimiento',
     'foto', 'estatus', 'created_by',
@@ -68,6 +69,26 @@ class Beneficiario extends Model
         return $this->belongsTo(CatSector::class, 'sector_id');
     }
 
+    public function filiacion(): BelongsTo
+    {
+        return $this->belongsTo(CatFiliacion::class, 'filiacion_id');
+    }
+
+    public function antagonico(): BelongsTo
+    {
+        return $this->belongsTo(CatAntagonico::class, 'antagonico_id');
+    }
+
+    public function lider(): BelongsTo
+    {
+        return $this->belongsTo(CatLider::class, 'lider_id');
+    }
+
+    public function influencia(): BelongsTo
+    {
+        return $this->belongsTo(CatInfluencia::class, 'influencia_id');
+    }
+
     public function estadoCivil(): BelongsTo
     {
         return $this->belongsTo(CatEstadoCivil::class, 'estado_civil_id');
@@ -86,5 +107,11 @@ class Beneficiario extends Model
     public function comentarios(): MorphMany
     {
         return $this->morphMany(Comentario::class, 'comentable');
+    }
+
+    /** Solicitudes en las que figura como solicitante. */
+    public function solicitudes(): MorphMany
+    {
+        return $this->morphMany(Solicitud::class, 'solicitante');
     }
 }

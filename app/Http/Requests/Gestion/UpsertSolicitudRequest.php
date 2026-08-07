@@ -31,11 +31,17 @@ class UpsertSolicitudRequest extends FormRequest
             'concepto_id' => ['nullable', 'integer', Rule::exists('cat_conceptos', 'id')],
             'procedencia_id' => ['nullable', 'integer', Rule::exists('cat_origenes_solicitud', 'id')],
             'origen' => $texto,
-            'status' => ['required', 'integer', 'between:0,6'],
+            // El estatus no se captura a mano: lo mueve el flujo de seguimiento
+            // y de atención, igual que en el legacy.
             'prioridad' => ['nullable', 'integer', 'between:0,5'],
+            'bene_final' => ['nullable', 'integer', 'in:1,2,3'],
             'tipo' => ['nullable', 'integer'],
             'control_administrativo' => ['boolean'],
             'fecha_recepcion' => ['nullable', 'date'],
+            'fecha_comp' => ['nullable', 'string', 'max:255'],
+            'latitud' => $texto,
+            'longitud' => $texto,
+            'imagen' => ['nullable', 'string'],
             'estado_resp_id' => ['nullable', 'integer', Rule::exists('cat_estados', 'id')],
             'municipio_resp_id' => ['nullable', 'integer', Rule::exists('cat_municipios', 'id')],
             'localidad_resp_id' => ['nullable', 'integer', Rule::exists('cat_localidades', 'id')],

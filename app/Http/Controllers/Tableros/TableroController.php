@@ -4,11 +4,15 @@ namespace App\Http\Controllers\Tableros;
 
 use App\Http\Controllers\Controller;
 use App\Models\Beneficiario;
+use App\Models\Denuncia;
+use App\Models\Detenido;
 use App\Models\Evento;
+use App\Models\Obra;
 use App\Models\Organizacion;
 use App\Models\Solicitud;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -45,6 +49,178 @@ class TableroController extends Controller
             'porDependencia' => $this->porDependencia([1, 3, 4]),
             'cumplimiento' => $total > 0 ? round($concluidas / $total * 100) : 0,
         ]);
+    }
+
+    // ---------------------------------------------------------------- Seguridad
+    public function obra(): Response
+    {
+        // Los siete acuses del legacy, en el mismo orden de su statsBar.
+        $etapas = Obra::query()
+            ->selectRaw('
+                count(*) as total,
+                count(*) filter (where ficha_completo) as ficha,
+                count(*) filter (where expediente_completo) as expediente,
+                count(*) filter (where autorizacion_completo) as autorizacion,
+                count(*) filter (where adjudicacion_completo) as adjudicacion,
+                count(*) filter (where ejecucion_completo) as ejecucion,
+                count(*) filter (where conclusion_completo) as conclusion,
+                count(*) filter (where entrega_completo) as entrega
+            ')
+            ->first();
+
+        $total = (int) ($etapas->total ?? 0);
+
+        return Inertia::render('tableros/obra', [
+            'resumen' => [
+                'total' => $total,
+                'ficha' => (int) $etapas->ficha,
+                'expediente' => (int) $etapas->expediente,
+                'autorizacion' => (int) $etapas->autorizacion,
+                'adjudicacion' => (int) $etapas->adjudicacion,
+                'ejecucion' => (int) $etapas->ejecucion,
+                'conclusion' => (int) $etapas->conclusion,
+                'entrega' => (int) $etapas->entrega,
+            ],
+            // Qué tanto del padrón llegó hasta la entrega-recepción.
+            'cumplimiento' => $total > 0
+                ? round(((int) $etapas->entrega) * 100 / $total, 1)
+                : 0,
+            'porEtapa' => [
+                ['Sin ficha cerrada', $total - (int) $etapas->ficha],
+                ['Hasta ficha o expediente', max(0, (int) $etapas->ficha - (int) $etapas->adjudicacion)],
+                ['Adjudicadas, sin entregar', max(0, (int) $etapas->adjudicacion - (int) $etapas->entrega)],
+                ['Entregadas', (int) $etapas->entrega],
+            ],
+            'topLocalidad' => $this->inversionPorLocalidad(),
+            'obras' => $this->obrasUbicadas(),
+        ]);
+    }
+
+    /**
+     * Inversión por localidad. `monto_inv` es texto en el legacy (con comas y
+     * basura), así que se limpia antes de sumar y se descarta lo que no sea
+     * un número.
+     *
+     * @return list<array{0: string, 1: float}>
+     */
+    private function inversionPorLocalidad(): array
+    {
+        return DB::table('tbl_obras as o')
+            ->join('cat_localidades as l', 'l.id', '=', 'o.localidad_id')
+            ->whereNull('o.deleted_at')
+            ->whereRaw("replace(replace(coalesce(o.monto_inv, ''), ',', ''), '$', '') ~ '^[0-9]+(\\.[0-9]+)?$'")
+            ->groupBy('l.nombre')
+            ->selectRaw("l.nombre, sum(replace(replace(o.monto_inv, ',', ''), '$', '')::numeric) as monto")
+            ->orderByDesc('monto')
+            ->limit(10)
+            ->get()
+            ->map(fn ($r): array => [$r->nombre, (float) $r->monto])
+            ->all();
+    }
+
+    /**
+     * Las obras con coordenada, con la etapa que alcanzaron para el color.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function obrasUbicadas(): array
+    {
+        return Obra::query()
+            ->with('autorizacion:id,obra_id,nombre_obra_aut')
+            // El texto tiene que parecer un número: hay registros con "NaN",
+            // que al castear se vuelven 0 y mandan el alfiler al Atlántico.
+            ->whereRaw("latitud ~ '^-?[0-9]+(\\.[0-9]+)?\$'")
+            ->whereRaw("longitud ~ '^-?[0-9]+(\\.[0-9]+)?\$'")
+            ->get(['id', 'num_obra', 'nombre', 'latitud', 'longitud', 'adjudicacion_completo', 'entrega_completo'])
+            ->map(fn (Obra $o): array => [
+                'id' => $o->num_obra ?: $o->id,
+                'lat' => (float) $o->latitud,
+                'lng' => (float) $o->longitud,
+                'resumen' => Str::limit((string) ($o->autorizacion?->nombre_obra_aut ?: $o->nombre), 90),
+                'etapa' => match (true) {
+                    $o->entrega_completo => 'Entregada',
+                    $o->adjudicacion_completo => 'En ejecución',
+                    default => 'Sin adjudicar',
+                },
+            ])
+            // Y tiene que ser un punto de la Tierra que no sea el (0, 0).
+            ->filter(fn (array $p): bool => abs($p['lat']) <= 90
+                && abs($p['lng']) <= 180
+                && ($p['lat'] !== 0.0 || $p['lng'] !== 0.0))
+            ->values()
+            ->all();
+    }
+
+    public function seguridad(): Response
+    {
+        $porEtapa = Denuncia::query()
+            ->selectRaw('
+                count(*) filter (where not con_atencion and not con_termino) as recibidas,
+                count(*) filter (where con_atencion and not con_termino) as en_atencion,
+                count(*) filter (where con_termino) as concluidas,
+                count(*) as total
+            ')
+            ->first();
+
+        return Inertia::render('tableros/seguridad', [
+            'resumen' => [
+                'total' => (int) ($porEtapa->total ?? 0),
+                'recibidas' => (int) ($porEtapa->recibidas ?? 0),
+                'enAtencion' => (int) ($porEtapa->en_atencion ?? 0),
+                'concluidas' => (int) ($porEtapa->concluidas ?? 0),
+                'detenidos' => Detenido::query()->count(),
+            ],
+            'porEtapa' => [
+                ['Recepción', (int) ($porEtapa->recibidas ?? 0)],
+                ['En atención', (int) ($porEtapa->en_atencion ?? 0)],
+                ['Concluidas', (int) ($porEtapa->concluidas ?? 0)],
+            ],
+            'porDelito' => $this->porDelito(),
+            'incidencias' => $this->incidenciasUbicadas(),
+        ]);
+    }
+
+    /**
+     * Los presuntos delitos más frecuentes.
+     *
+     * @return list<array{0: string, 1: int}>
+     */
+    private function porDelito(): array
+    {
+        return Denuncia::query()
+            ->join('cat_tipos_incidencia as t', 't.id', '=', 'tbl_denuncias.tipo_incidencia_id')
+            ->selectRaw('t.nombre, count(*) as n')
+            ->groupBy('t.nombre')
+            ->orderByDesc('n')
+            ->limit(10)
+            ->get()
+            ->map(fn ($r): array => [(string) $r->nombre, (int) $r->n])
+            ->all();
+    }
+
+    /**
+     * Denuncias georreferenciadas para el mapa de incidencias del tablero.
+     * Sólo las que tienen coordenadas capturadas en la toma de conocimiento.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function incidenciasUbicadas(): array
+    {
+        return Denuncia::query()
+            ->whereNotNull('latitud')
+            ->where('latitud', '<>', '')
+            ->latest('id')
+            ->limit(500)
+            ->get(['id', 'latitud', 'longitud', 'denuncia', 'con_atencion', 'con_termino'])
+            ->map(fn (Denuncia $d): array => [
+                'id' => $d->id,
+                'lat' => (float) $d->latitud,
+                'lng' => (float) $d->longitud,
+                'resumen' => Str::limit((string) $d->denuncia, 120),
+                'etapa' => $d->estatusLabel(),
+            ])
+            ->values()
+            ->all();
     }
 
     // ------------------------------------------------------------------ Gestión

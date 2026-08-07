@@ -53,4 +53,10 @@ class Organizacion extends Model
     {
         return $this->morphMany(Comentario::class, 'comentable');
     }
+
+    /** Solicitudes en las que figura como solicitante. */
+    public function solicitudes(): MorphMany
+    {
+        return $this->morphMany(Solicitud::class, 'solicitante');
+    }
 }

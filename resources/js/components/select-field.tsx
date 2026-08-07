@@ -13,12 +13,15 @@ const SIN = '__none__';
 type Opcion = { id: number; nombre: string };
 
 type SelectFieldProps = {
+    /** Vacío para no dibujar etiqueta (cuando ya la rotula quien lo usa). */
     label: string;
     value: number | null;
     options: Opcion[];
     onChange: (value: number | null) => void;
     error?: string;
     placeholder?: string;
+    /** Texto de la opción sin valor; en filtros conviene "Todas"/"Todos". */
+    emptyLabel?: string;
     disabled?: boolean;
 };
 
@@ -30,14 +33,25 @@ export function SelectField({
     onChange,
     error,
     placeholder = 'Selecciona...',
+    emptyLabel = '— Ninguno —',
     disabled,
 }: SelectFieldProps) {
+    // El valor actual siempre tiene su opción, aunque la lista todavía no
+    // cargue o dependa de otro select: si falta, el componente descarta el
+    // valor y lo reporta como cadena vacía, que `Number('')` volvía 0.
+    const visibles =
+        value && !options.some((o) => o.id === value)
+            ? [{ id: value, nombre: '…' }, ...options]
+            : options;
+
     return (
         <Field>
-            <Label>{label}</Label>
+            {label !== '' && <Label>{label}</Label>}
             <Select
                 value={value ? String(value) : SIN}
-                onValueChange={(v) => onChange(v === SIN ? null : Number(v))}
+                onValueChange={(v) =>
+                    onChange(v === SIN || v === '' ? null : Number(v))
+                }
                 disabled={disabled}
             >
                 <SelectTrigger
@@ -47,8 +61,8 @@ export function SelectField({
                     <SelectValue placeholder={placeholder} />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value={SIN}>— Ninguno —</SelectItem>
-                    {options.map((opcion) => (
+                    <SelectItem value={SIN}>{emptyLabel}</SelectItem>
+                    {visibles.map((opcion) => (
                         <SelectItem key={opcion.id} value={String(opcion.id)}>
                             {opcion.nombre}
                         </SelectItem>

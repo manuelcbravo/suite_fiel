@@ -17,11 +17,11 @@ class Seguimiento extends Model
 
     protected $table = 'tbl_seguimientos';
 
-    /** Etiquetas de `estatus` del turnado (legacy). */
+    /** Etiquetas de `estatus` del turnado (legacy `seguimiento_add.php`). */
     public const ESTATUS = [
         1 => 'Turnada',
         2 => 'No aprobada',
-        3 => 'Resuelta',
+        3 => 'Para resolver',
     ];
 
     protected function casts(): array

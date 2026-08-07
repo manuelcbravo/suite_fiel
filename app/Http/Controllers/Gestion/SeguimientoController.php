@@ -14,27 +14,61 @@ use Illuminate\Validation\Rule;
 class SeguimientoController extends Controller
 {
     /**
-     * Turna la solicitud a una dependencia/área (nuevo seguimiento).
+     * Da seguimiento a la solicitud (legacy `seguimiento_add.php`). El estatus
+     * elegido decide el flujo y se copia tal cual a la solicitud:
+     *   1 = TURNAR · 2 = NO APROBADA · 3 = PARA RESOLVER
      */
     public function store(StoreSeguimientoRequest $request, Solicitud $solicitud): RedirectResponse
     {
         $data = $request->validated();
+        $estatus = (int) $data['estatus'];
+        $noAprobada = $estatus === 2;
 
         $solicitud->seguimientos()->create([
-            'dependencia_id' => $data['dependencia_id'] ?? null,
-            'area_id' => $data['area_id'] ?? null,
-            'instruccion' => $data['instruccion'] ?? null,
+            // "No aprobada" no se turna a nadie: sólo lleva comentario.
+            'dependencia_id' => $noAprobada ? null : ($data['dependencia_id'] ?? null),
+            'area_id' => $noAprobada ? null : ($data['area_id'] ?? null),
+            'responsable' => $noAprobada ? null : ($data['responsable'] ?? null),
+            'instruccion' => $noAprobada ? null : ($data['instruccion'] ?? null),
             'comentario' => $data['comentario'] ?? null,
-            'estatus' => 1, // Turnada
+            'estatus' => $estatus,
             'created_by' => $request->user()?->id,
         ]);
 
-        // Refleja el turnado en la solicitud.
-        if ($solicitud->status === 0) {
-            $solicitud->update(['status' => 1]);
+        $solicitud->update([
+            'status' => $estatus,
+            'fecha_comp' => $data['fecha_comp'] ?? null,
+            'localidad_resp_id' => $data['localidad_resp_id'] ?? $solicitud->localidad_resp_id,
+        ]);
+
+        return back()->with('success', match ($estatus) {
+            2 => 'Solicitud marcada como no aprobada.',
+            3 => 'Solicitud turnada para resolver.',
+            default => 'Solicitud turnada correctamente.',
+        });
+    }
+
+    /**
+     * Marca si ya se notificó al ciudadano. En el legacy sólo aplica a las
+     * solicitudes no aprobadas y se guarda al instante (`notificar.php`).
+     */
+    public function notificar(Request $request, Solicitud $solicitud): RedirectResponse
+    {
+        $data = $request->validate([
+            'notificacion' => ['required', 'boolean'],
+        ]);
+
+        if ($solicitud->status !== 2) {
+            return back()->withErrors([
+                'notificacion' => 'Sólo se puede notificar una solicitud no aprobada.',
+            ]);
         }
 
-        return back()->with('success', 'Solicitud turnada correctamente.');
+        $solicitud->update(['notificacion' => $data['notificacion']]);
+
+        return back()->with('success', $data['notificacion']
+            ? 'Ciudadano notificado.'
+            : 'Notificación pendiente.');
     }
 
     /**
@@ -52,9 +86,12 @@ class SeguimientoController extends Controller
             'respuesta' => $data['respuesta'],
             'responsable' => $data['responsable'] ?? $seguimiento->responsable,
             'avance' => $data['avance'] ?? $seguimiento->avance,
-            'estatus' => 3, // Resuelta
+            'estatus_resp' => 4, // Respuesta del área
             'fecha_respuesta' => now(),
+            'respuesta_de_id' => $request->user()?->id,
         ]);
+
+        $seguimiento->solicitud?->update(['status' => 4]);
 
         return back()->with('success', 'Respuesta registrada.');
     }

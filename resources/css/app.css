@@ -141,3 +141,136 @@
         @apply bg-background text-foreground;
     }
 }
+
+/*
+ * Agenda — FullCalendar viene con su propia hoja de estilos pensada para fondo
+ * claro: en tema oscuro los encabezados quedan ilegibles, la rejilla brilla y
+ * la columna de hoy se tiñe de mostaza. Aquí se reasignan sus variables a los
+ * tokens del tema y se le da forma al día: la franja de jornada laboral se
+ * distingue del resto y "ahora" es un acento, no una línea suelta.
+ */
+.agenda-calendario {
+    --fc-page-bg-color: var(--card);
+    --fc-neutral-bg-color: var(--muted);
+    --fc-border-color: var(--border);
+    --fc-today-bg-color: color-mix(in oklab, var(--primary) 7%, transparent);
+    --fc-now-indicator-color: var(--destructive-foreground);
+    --fc-event-border-color: transparent;
+    --fc-small-font-size: 0.75rem;
+    --fc-highlight-color: color-mix(in oklab, var(--primary) 14%, transparent);
+}
+
+/* Encabezado: el título del periodo manda, los botones son los de la app. */
+.agenda-calendario .fc-toolbar-title {
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.agenda-calendario .fc .fc-button {
+    background: transparent;
+    border-color: var(--border);
+    color: var(--foreground);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.3rem 0.7rem;
+    box-shadow: none;
+    text-transform: capitalize;
+}
+
+.agenda-calendario .fc .fc-button:hover:not(:disabled) {
+    background: var(--accent);
+}
+
+.agenda-calendario .fc .fc-button-primary:not(:disabled).fc-button-active,
+.agenda-calendario .fc .fc-button-primary:not(:disabled):active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--primary-foreground);
+}
+
+.agenda-calendario .fc .fc-button:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    box-shadow: none;
+}
+
+.agenda-calendario .fc .fc-button:disabled {
+    opacity: 0.45;
+}
+
+/* Cabecera de los días: el día de la semana como rótulo, el número al frente. */
+.agenda-calendario .fc-col-header-cell {
+    background: var(--muted);
+    padding-block: 0.4rem;
+}
+
+.agenda-calendario .fc-col-header-cell-cushion {
+    color: var(--muted-foreground);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.25rem 0.4rem;
+}
+
+.agenda-calendario .fc-day-today .fc-col-header-cell-cushion {
+    color: var(--primary);
+}
+
+/* Horas: cifras tabulares para que la columna quede alineada. */
+.agenda-calendario .fc-timegrid-slot-label-cushion,
+.agenda-calendario .fc-timegrid-axis-cushion {
+    color: var(--muted-foreground);
+    font-size: 0.6875rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* La forma del día: fuera de la jornada se apaga. */
+.agenda-calendario .fc-timegrid-col.fc-day .fc-non-business {
+    background: color-mix(in oklab, var(--muted) 55%, transparent);
+}
+
+.agenda-calendario .fc-daygrid-day-number,
+.agenda-calendario .fc-daygrid-more-link {
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.agenda-calendario .fc-day-today .fc-daygrid-day-number {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+/* Ahora: una sola línea, con un punto en el borde para ubicarla de reojo. */
+.agenda-calendario .fc .fc-timegrid-now-indicator-line {
+    border-width: 2px 0 0;
+}
+
+.agenda-calendario .fc .fc-timegrid-now-indicator-arrow {
+    border-width: 5px;
+}
+
+.agenda-calendario .fc-event {
+    border-radius: 0.25rem;
+    padding: 1px 0;
+    cursor: pointer;
+}
+
+.agenda-calendario .fc-event:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
+}
+
+/* El riel del expediente (tablero de obra): las siete barras crecen desde cero
+   al cargar, escalonadas, para que la secuencia se lea como secuencia. Con
+   `prefers-reduced-motion` la barra aparece ya en su ancho final. */
+@keyframes crecer-barra {
+    from {
+        width: 0;
+    }
+    to {
+        width: var(--ancho);
+    }
+}

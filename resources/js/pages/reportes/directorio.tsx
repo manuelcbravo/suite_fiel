@@ -1,6 +1,8 @@
 import { Head } from '@inertiajs/react';
 import { Contact } from 'lucide-react';
 import { useState } from 'react';
+import { ColumnasField, useColumnas } from '@/components/columnas-field';
+import type { ColumnaOpcion } from '@/components/columnas-field';
 import { ReporteShell } from '@/components/reporte-shell';
 import type { Columna, Paginacion } from '@/components/reporte-shell';
 import { SelectField } from '@/components/select-field';
@@ -18,6 +20,7 @@ type Filtros = {
     ocupacion_id: number | null;
     profesion_id: number | null;
     estado_civil_id: number | null;
+    columnas: string[];
 };
 type Opciones = {
     estados: Opcion[];
@@ -26,6 +29,7 @@ type Opciones = {
     ocupaciones: Opcion[];
     profesiones: Opcion[];
     estadosCiviles: Opcion[];
+    columnas: ColumnaOpcion[];
 };
 
 const TIPOS: Opcion[] = [
@@ -46,41 +50,6 @@ const TIPO_ID: Record<Tipo, number> = {
     ciudadanos: 1,
     asociaciones: 2,
     proveedores: 3,
-};
-
-const COLUMNAS: Record<Tipo, Columna[]> = {
-    ciudadanos: [
-        { key: 'nombre', header: 'Nombre' },
-        { key: 'curp', header: 'CURP' },
-        { key: 'genero', header: 'Género' },
-        { key: 'celular', header: 'Celular' },
-        { key: 'correo', header: 'Correo' },
-        { key: 'ocupacion', header: 'Ocupación' },
-        { key: 'sector', header: 'Sector' },
-        { key: 'localidad', header: 'Localidad' },
-        { key: 'municipio', header: 'Municipio' },
-        { key: 'estado', header: 'Estado' },
-    ],
-    asociaciones: [
-        { key: 'nombre', header: 'Nombre' },
-        { key: 'tipo', header: 'Tipo' },
-        { key: 'representante', header: 'Representante' },
-        { key: 'celular', header: 'Celular' },
-        { key: 'telefono', header: 'Teléfono' },
-        { key: 'correo', header: 'Correo' },
-        { key: 'municipio', header: 'Municipio' },
-        { key: 'estado', header: 'Estado' },
-    ],
-    proveedores: [
-        { key: 'nombre', header: 'Nombre' },
-        { key: 'rfc', header: 'RFC' },
-        { key: 'especialidad', header: 'Especialidad' },
-        { key: 'celular', header: 'Celular' },
-        { key: 'telefono', header: 'Teléfono' },
-        { key: 'correo', header: 'Correo' },
-        { key: 'municipio', header: 'Municipio' },
-        { key: 'estado', header: 'Estado' },
-    ],
 };
 
 export default function ReporteDirectorio({
@@ -111,6 +80,14 @@ export default function ReporteDirectorio({
     const [estadoCivil, setEstadoCivil] = useState<number | null>(
         filtros.estado_civil_id,
     );
+    const [columnas, setColumnas] = useColumnas(filtros.columnas);
+
+    // Cada directorio tiene su propio juego de columnas: al cambiar de
+    // pestaña las marcas anteriores ya no significan nada.
+    const cambiarTipo = (id: number | null) => {
+        setTipo(TIPO_VALOR[id ?? 1] ?? 'ciudadanos');
+        setColumnas([]);
+    };
 
     const params = {
         tipo,
@@ -118,18 +95,24 @@ export default function ReporteDirectorio({
         municipio_id: ubic.municipio_id,
         localidad_id: ubic.localidad_id,
         genero: tipo === 'ciudadanos' ? genero : null,
-        sector_id:
-            tipo === 'proveedores' ? null : sector,
+        sector_id: tipo === 'proveedores' ? null : sector,
         ocupacion_id: tipo === 'ciudadanos' ? ocupacion : null,
         profesion_id: tipo === 'ciudadanos' ? profesion : null,
         estado_civil_id: tipo === 'ciudadanos' ? estadoCivil : null,
+        columnas,
     };
+
+    const columnasTabla: Columna[] = opciones.columnas
+        .filter((c) => filtros.columnas.includes(c.clave))
+        .map((c) => ({ key: c.clave, header: c.label }));
 
     return (
         <>
             <Head title="Reporte de directorio" />
             <ReporteShell
                 title="Reporte de directorio"
+                descripcion="Quién está registrado y cómo contactarlo."
+                sustantivo="registros"
                 icon={Contact}
                 pageUrl="/reportes/directorio"
                 exportBase="/reportes/directorio.xlsx"
@@ -145,8 +128,17 @@ export default function ReporteDirectorio({
                     setOcupacion(null);
                     setProfesion(null);
                     setEstadoCivil(null);
+                    setColumnas([]);
                 }}
-                columns={COLUMNAS[tipo]}
+                columnasField={
+                    <ColumnasField
+                        opciones={opciones.columnas}
+                        value={columnas}
+                        onChange={setColumnas}
+                    />
+                }
+                totalColumnas={opciones.columnas.length}
+                columns={columnasTabla}
                 filas={filas}
                 paginacion={paginacion}
             >
@@ -154,7 +146,7 @@ export default function ReporteDirectorio({
                     label="Directorio"
                     value={TIPO_ID[tipo]}
                     options={TIPOS}
-                    onChange={(v) => setTipo(TIPO_VALOR[v ?? 1] ?? 'ciudadanos')}
+                    onChange={cambiarTipo}
                 />
                 {tipo === 'ciudadanos' && (
                     <>

@@ -1,5 +1,6 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import {
+    FileText,
     MoreHorizontal,
     Pencil,
     Plus,
@@ -13,9 +14,9 @@ import { CrudFormDialog } from '@/components/crud-form-dialog';
 import { DataTable } from '@/components/data-table';
 import type { DataTableColumn, DataTableServer } from '@/components/data-table';
 import { FormInputField } from '@/components/form-input-field';
+import { MapaPunto } from '@/components/mapa-punto';
 import { SelectField } from '@/components/select-field';
 import { UbicacionSelects } from '@/components/ubicacion-selects';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -26,9 +27,18 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Field } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { resolveFormErrorMessage } from '@/lib/form-error-message';
 import { destroy, index, store } from '@/routes/seguridad/denuncias';
+import { EtapaTrack } from './etapa-track';
+import type { DenunciaEtapa } from './etapas';
+import {
+    ICONO_ATENCION,
+    ICONO_TERMINO,
+    TerminoDialog,
+    TomaConocimientoDialog,
+} from './etapas';
 
 type Opcion = { id: number; nombre: string };
 type Denuncia = {
@@ -50,6 +60,61 @@ type Opciones = {
     estados: Opcion[];
 };
 type Form = Record<string, string | number | boolean | null>;
+
+/** Las tres etapas del flujo legacy, para filtrar el listado. */
+const ETAPAS: Opcion[] = [
+    { id: 1, nombre: 'Recepción' },
+    { id: 2, nombre: 'Atención' },
+    { id: 3, nombre: 'Término' },
+];
+
+type Filtro = {
+    estado_id: number | null;
+    municipio_id: number | null;
+    localidad_id: number | null;
+    estatus: number | null;
+    ini: string;
+    fin: string;
+};
+
+/** Filtros que viajan en la URL (los vacíos se omiten). */
+function aplicables(
+    filtro: Filtro,
+    busqueda?: string,
+): Record<string, string | number> {
+    const params: Record<string, string | number> = {};
+
+    if (filtro.localidad_id !== null) {
+        params.localidad_id = filtro.localidad_id;
+    }
+
+    if (filtro.estatus !== null) {
+        params.estatus = filtro.estatus;
+    }
+
+    if (filtro.ini !== '') {
+        params.ini = filtro.ini;
+    }
+
+    if (filtro.fin !== '') {
+        params.fin = filtro.fin;
+    }
+
+    if (busqueda) {
+        params.busqueda = busqueda;
+    }
+
+    return params;
+}
+
+/** Rótulo pequeño que nombra un control. */
+function Eyebrow({ children }: { children: React.ReactNode }) {
+    return (
+        <span className="block text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+            {children}
+        </span>
+    );
+}
 
 const VACIO: Form = {
     id: null,
@@ -83,25 +148,37 @@ const VACIO: Form = {
     con_termino: false,
 };
 
-const ESTATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline'> = {
-    Recibida: 'secondary',
-    Turnada: 'outline',
-    'En atención': 'default',
-    Concluida: 'default',
-};
-
 export default function DenunciasIndex({
     denuncias,
     paginacion,
+    filtros,
     opciones,
 }: {
     denuncias: Denuncia[];
     paginacion: DataTableServer;
+    filtros: {
+        busqueda: string;
+        localidad_id: number | null;
+        estatus: number | null;
+        ini: string;
+        fin: string;
+    };
     opciones: Opciones;
 }) {
     const [formMode, setFormMode] = useState<'create' | 'edit' | null>(null);
     const [editando, setEditando] = useState<Denuncia | null>(null);
     const [eliminar, setEliminar] = useState<Denuncia | null>(null);
+    const [atender, setAtender] = useState<Denuncia | null>(null);
+    const [concluir, setConcluir] = useState<Denuncia | null>(null);
+    // El filtro de localidad usa el selector en cascada; sólo viaja la localidad.
+    const [filtro, setFiltro] = useState({
+        estado_id: null as number | null,
+        municipio_id: null as number | null,
+        localidad_id: filtros.localidad_id,
+        estatus: filtros.estatus,
+        ini: filtros.ini,
+        fin: filtros.fin,
+    });
     const form = useForm<Form>(VACIO);
     const { flash } = usePage().props;
 
@@ -173,29 +250,44 @@ export default function DenunciasIndex({
             ),
         },
         {
-            key: 'tipo',
-            header: 'Incidencia',
-            cell: (row) => row.tipo_nombre || '—',
+            key: 'reporte',
+            header: 'Reporte',
+            // El TableCell base no deja envolver; aquí sí, para poder recortar
+            // a dos renglones con puntos suspensivos.
+            className: 'max-w-md whitespace-normal',
+            cell: (row) => (
+                <p className="line-clamp-2 text-sm text-muted-foreground">
+                    {row.denuncia || 'Sin descripción'}
+                </p>
+            ),
         },
         {
-            key: 'sector',
-            header: 'Sector',
-            cell: (row) => row.sector_nombre || '—',
+            key: 'tipo',
+            header: 'Incidencia',
+            cell: (row) =>
+                row.tipo_nombre || (
+                    <span className="text-muted-foreground">
+                        Sin clasificar
+                    </span>
+                ),
         },
         {
             key: 'estatus',
-            header: 'Estatus',
+            header: 'Etapa',
             cell: (row) => (
-                <Badge variant={ESTATUS_VARIANT[row.estatus_label] ?? 'secondary'}>
-                    {row.estatus_label}
-                </Badge>
+                <EtapaTrack
+                    conAtencion={Boolean(row.con_atencion)}
+                    conTermino={Boolean(row.con_termino)}
+                />
             ),
         },
         {
             key: 'det',
-            header: 'Det.',
-            className: 'w-14 text-center',
-            cell: (row) => row.detenidos_count,
+            header: 'Detenidos',
+            className: 'w-20 text-right',
+            cell: (row) => (
+                <span className="tabular-nums">{row.detenidos_count}</span>
+            ),
         },
         {
             key: 'actions',
@@ -209,8 +301,27 @@ export default function DenunciasIndex({
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                        {/* Las tres etapas del legacy, en orden. */}
                         <DropdownMenuItem onClick={() => abrirEditar(row)}>
-                            <Pencil className="mr-2 size-4" /> Editar / atender
+                            <Pencil className="mr-2 size-4" /> Recepción
+                        </DropdownMenuItem>
+                        {!row.con_termino && (
+                            <DropdownMenuItem onClick={() => setAtender(row)}>
+                                <ICONO_ATENCION className="mr-2 size-4" /> Toma
+                                de conocimiento
+                            </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem onClick={() => setConcluir(row)}>
+                            <ICONO_TERMINO className="mr-2 size-4" /> Término
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                            <a
+                                href={`/seguridad/denuncias/${row.id}/pdf`}
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                <FileText className="mr-2 size-4" /> Imprimir PDF
+                            </a>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -248,10 +359,78 @@ export default function DenunciasIndex({
                     </div>
                 </div>
 
+                {/* Filtros del legacy: localidad, etapa y rango de fechas. */}
+                <form
+                    className="space-y-3 rounded-xl border border-sidebar-border/70 bg-card p-4"
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        router.get(index.url(), aplicables(filtro, filtros.busqueda), {
+                            preserveState: true,
+                            preserveScroll: true,
+                        });
+                    }}
+                >
+                    <div className="grid items-end gap-3 md:grid-cols-12">
+                        <div className="space-y-1.5 md:col-span-6">
+                            <Eyebrow>Dónde</Eyebrow>
+                            <UbicacionSelects
+                                estados={opciones.estados}
+                                value={{
+                                    estado_id: filtro.estado_id,
+                                    municipio_id: filtro.municipio_id,
+                                    localidad_id: filtro.localidad_id,
+                                }}
+                                onChange={(patch) =>
+                                    setFiltro({ ...filtro, ...patch })
+                                }
+                            />
+                        </div>
+                        <div className="space-y-1.5 md:col-span-2">
+                            <Eyebrow>Etapa</Eyebrow>
+                            <SelectField
+                                label=""
+                                emptyLabel="Todas"
+                                value={filtro.estatus}
+                                options={ETAPAS}
+                                onChange={(v) =>
+                                    setFiltro({ ...filtro, estatus: v })
+                                }
+                            />
+                        </div>
+                        <div className="space-y-1.5 md:col-span-2">
+                            <Eyebrow>Desde</Eyebrow>
+                            <Input
+                                type="date"
+                                value={filtro.ini}
+                                onChange={(e) =>
+                                    setFiltro({ ...filtro, ini: e.target.value })
+                                }
+                            />
+                        </div>
+                        <div className="space-y-1.5 md:col-span-2">
+                            <Eyebrow>Hasta</Eyebrow>
+                            <Input
+                                type="date"
+                                value={filtro.fin}
+                                onChange={(e) =>
+                                    setFiltro({ ...filtro, fin: e.target.value })
+                                }
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                        <Button type="submit" className="md:w-40">
+                            Aplicar filtros
+                        </Button>
+                    </div>
+                </form>
                 <DataTable
                     columns={columns}
                     data={denuncias}
                     server={paginacion}
+                    // Sin esto, escribir en el buscador tiraba los filtros.
+                    extraParams={aplicables(filtro)}
                     searchPlaceholder="Buscar por denunciante, texto o quien atendió..."
                 />
             </div>
@@ -351,10 +530,14 @@ export default function DenunciasIndex({
                             form.setData({ ...form.data, ...patch })
                         }
                     />
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        {texto('latitud', 'Latitud')}
-                        {texto('longitud', 'Longitud')}
-                    </div>
+                    {/* Las coordenadas las fija el mapa; no se capturan a mano. */}
+                    <MapaPunto
+                        latitud={(form.data.latitud as string) ?? ''}
+                        longitud={(form.data.longitud as string) ?? ''}
+                        onChange={(latitud, longitud) =>
+                            form.setData({ ...form.data, latitud, longitud })
+                        }
+                    />
                 </div>
 
                 <div className="space-y-3 border-t pt-4">
@@ -421,6 +604,21 @@ export default function DenunciasIndex({
                     </div>
                 </div>
             </CrudFormDialog>
+
+            {atender && (
+                <TomaConocimientoDialog
+                    denuncia={atender as unknown as DenunciaEtapa}
+                    opciones={opciones}
+                    onClose={() => setAtender(null)}
+                />
+            )}
+
+            {concluir && (
+                <TerminoDialog
+                    denuncia={concluir as unknown as DenunciaEtapa}
+                    onClose={() => setConcluir(null)}
+                />
+            )}
 
             <ConfirmDeleteDialog
                 open={eliminar !== null}

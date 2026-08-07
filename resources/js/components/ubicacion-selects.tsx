@@ -11,7 +11,8 @@ import {
 
 const SIN = '__none__';
 
-type Opcion = { id: number; nombre: string };
+/** Las localidades traen además su sección electoral; el resto no. */
+type Opcion = { id: number; nombre: string; seccion?: number | null };
 
 type UbicacionValue = {
     estado_id: number | null;
@@ -27,6 +28,12 @@ type UbicacionSelectsProps = {
     /** Nombres actuales (edición) para mostrar mientras cargan las listas. */
     municipioNombre?: string | null;
     localidadNombre?: string | null;
+    /**
+     * Avisa la sección electoral de la localidad elegida. Sólo la usa el
+     * directorio; en el legacy la sección se copia de la localidad y el campo
+     * se muestra en sólo lectura.
+     */
+    onSeccion?: (seccion: number | null) => void;
 };
 
 async function cargar(url: string): Promise<Opcion[]> {
@@ -49,6 +56,7 @@ export function UbicacionSelects({
     errors,
     municipioNombre,
     localidadNombre,
+    onSeccion,
 }: UbicacionSelectsProps) {
     const [municipios, setMunicipios] = useState<Opcion[]>([]);
     const [localidades, setLocalidades] = useState<Opcion[]>([]);
@@ -99,33 +107,57 @@ export function UbicacionSelects({
         };
     }, [value.municipio_id]);
 
+    // Radix emite cadena vacía cuando limpia un valor controlado que todavía
+    // no tiene opción; sin este guardia `Number('')` lo convertía en 0 y el
+    // campo quedaba en blanco al abrir una edición.
+    const aId = (v: string): number | null =>
+        v === SIN || v === '' ? null : Number(v);
+
     const cambiarEstado = (v: string) => {
-        estadoRef.current = v === SIN ? null : Number(v);
+        estadoRef.current = aId(v);
         onChange({
             estado_id: estadoRef.current,
             municipio_id: null,
             localidad_id: null,
         });
+        onSeccion?.(null);
     };
 
     const cambiarMunicipio = (v: string) => {
-        municipioRef.current = v === SIN ? null : Number(v);
+        municipioRef.current = aId(v);
         onChange({ municipio_id: municipioRef.current, localidad_id: null });
+        onSeccion?.(null);
     };
 
     const cambiarLocalidad = (v: string) => {
-        onChange({ localidad_id: v === SIN ? null : Number(v) });
+        const id = aId(v);
+        onChange({ localidad_id: id });
+        onSeccion?.(localidades.find((l) => l.id === id)?.seccion ?? null);
     };
 
-    // Si la lista aún no carga en edición, muestra el nombre actual como opción.
-    const municipiosVisibles =
-        municipios.length === 0 && value.municipio_id && municipioNombre
-            ? [{ id: value.municipio_id, nombre: municipioNombre }]
-            : municipios;
-    const localidadesVisibles =
-        localidades.length === 0 && value.localidad_id && localidadNombre
-            ? [{ id: value.localidad_id, nombre: localidadNombre }]
-            : localidades;
+    /**
+     * El valor actual siempre tiene opción, aunque la lista no haya cargado:
+     * si falta, Radix descarta el valor y la edición se abre en blanco.
+     */
+    const conActual = (
+        lista: Opcion[],
+        id: number | null,
+        nombre?: string | null,
+    ): Opcion[] =>
+        id && !lista.some((o) => o.id === id)
+            ? [{ id, nombre: nombre ?? `#${id}` }, ...lista]
+            : lista;
+
+    const municipiosVisibles = conActual(
+        municipios,
+        value.municipio_id,
+        municipioNombre,
+    );
+    const localidadesVisibles = conActual(
+        localidades,
+        value.localidad_id,
+        localidadNombre,
+    );
 
     return (
         <div className="grid gap-4 sm:grid-cols-3">

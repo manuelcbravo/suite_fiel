@@ -182,9 +182,28 @@ export default function InvitacionesIndex({
             ),
         },
         {
+            // El legacy llama "Remitente" a quien manda la invitación, que es
+            // el contacto capturado.
+            key: 'contacto',
+            header: 'Remitente',
+            cell: (row) => row.contacto || '—',
+        },
+        {
             key: 'inicio',
             header: 'Fecha',
             cell: (row) => (row.inicio ? formatDate(row.inicio) : '—'),
+        },
+        {
+            key: 'agenda',
+            header: 'Agenda',
+            cell: (row) =>
+                row.evento_id ? (
+                    <Badge variant="outline" title={row.evento_titulo ?? ''}>
+                        Vinculada
+                    </Badge>
+                ) : (
+                    <span className="text-muted-foreground">Sin evento</span>
+                ),
         },
         {
             key: 'tipo',

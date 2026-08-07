@@ -29,11 +29,14 @@ class AgendaSeeder extends Seeder
 
         $del = fn (string $a = '') => "CASE WHEN {$a}borrado = 1 THEN now() ELSE NULL END";
 
-        // Tipos de evento (sin giras).
+        // Tipos de evento (sin giras). El catálogo legacy trae cada tipo dos
+        // veces (dos altas sucesivas); DISTINCT ON se queda con el id más bajo
+        // y más abajo los eventos se enlazan por nombre, no por id.
         DB::statement("INSERT INTO cat_tipos_evento (id, nombre, color, deleted_at, created_at, updated_at)
-            SELECT id, nombre, color, {$del()}, now(), now()
+            SELECT DISTINCT ON (nombre) id, nombre, color, {$del()}, now(), now()
             FROM {$schema}.cal_tipos
-            WHERE nombre NOT ILIKE '%gira%'");
+            WHERE nombre NOT ILIKE '%gira%'
+            ORDER BY nombre, id");
         $this->reancla('cat_tipos_evento');
         $this->command?->info(sprintf('  %-22s %d', 'cat_tipos_evento', CatTipoEvento::count()));
 
@@ -49,10 +52,11 @@ class AgendaSeeder extends Seeder
                 {$ts('e.fechainicio', 'e.horainicio')}, {$ts('e.fechatermino', 'e.horatermino')},
                 COALESCE(e.completo, false), t.id,
                 e.lugarevento, e.contacto, e.telefono, e.personas, e.representante,
-                COALESCE(e.asiste,0) = 1, COALESCE(e.confirmado,0) = 1, COALESCE(e.discurso,0) = 1, COALESCE(e.evnt_prvd,0) = 1,
+                NULLIF(e.asiste, 0), COALESCE(e.confirmado,0) = 1, COALESCE(e.discurso,0) = 1, COALESCE(e.evnt_prvd,0) = 1,
                 {$del('e.')}, now(), now()
             FROM {$schema}.cal_eventos e
-            LEFT JOIN cat_tipos_evento t ON t.id = NULLIF(e.tipo_id, 0)
+            LEFT JOIN {$schema}.cal_tipos lt ON lt.id = NULLIF(e.tipo_id, 0)
+            LEFT JOIN cat_tipos_evento t ON t.nombre = lt.nombre
             WHERE NOT EXISTS (
                 SELECT 1 FROM {$schema}.cal_tipos g
                 WHERE g.id = e.tipo_id AND g.nombre ILIKE '%gira%'

@@ -2,6 +2,7 @@ import { Head } from '@inertiajs/react';
 import { columnChart, groupedBar, pieDonut } from '@/components/charts/builders';
 import { HChart } from '@/components/charts/hchart';
 import { Panel, StatCard } from '@/components/charts/panel';
+import { Encabezado } from '@/components/pagina';
 
 type Par = [string, number];
 type Matriz = {
@@ -24,7 +25,9 @@ export default function Financiero({
         <>
             <Head title="Tablero financiero" />
             <div className="space-y-4 p-4">
-                <div className="grid gap-3 sm:grid-cols-2">
+                <Encabezado titulo="Tablero financiero" />
+
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     <StatCard
                         label="Inversión total gestionada"
                         value={inversionTotal}
@@ -34,7 +37,10 @@ export default function Financiero({
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-2">
-                    <Panel title="Inversión por tipo de beneficiario">
+                    <Panel
+                        title="Inversión por tipo de beneficiario"
+                        nota="Personal contra comunitaria"
+                    >
                         <HChart
                             options={groupedBar(
                                 ['Asociación', 'Ciudadano'],
@@ -54,12 +60,18 @@ export default function Financiero({
                             )}
                         />
                     </Panel>
-                    <Panel title="Origen de inversión">
+                    <Panel
+                        title="Origen de inversión"
+                        nota="Solicitudes por fuente de recurso"
+                    >
                         <HChart options={pieDonut(origenInversion)} />
                     </Panel>
                 </div>
 
-                <Panel title="Top 10 localidad por inversión">
+                <Panel
+                    title="Top 10 localidad por inversión"
+                    nota="Monto gestionado"
+                >
                     <HChart options={columnChart(topLocalidadInversion, true)} />
                 </Panel>
             </div>

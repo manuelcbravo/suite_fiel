@@ -36,8 +36,12 @@ class InvitacionesSeeder extends Seeder
                 {$ts('i.fechainicio', 'i.horainicio')}, {$ts('i.fechatermino', 'i.horatermino')},
                 COALESCE(i.completo, false), t.id, e.id,
                 i.lugarevento, i.descripcion, i.recomendaciones, i.contacto, i.telefono,
-                i.fecha_recepcion, COALESCE(i.confirmado,0) = 1, COALESCE(i.atendida,0) = 1, i.comentario,
-                {$del('i.')}, now(), now()
+                -- `fecharecp` es la fecha que teclea el usuario; la columna
+                -- `fecha_recepcion` del legacy es en realidad el created_at.
+                CASE WHEN i.fecharecp ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                     THEN left(i.fecharecp, 10)::timestamp END,
+                COALESCE(i.confirmado,0) = 1, COALESCE(i.atendida,0) = 1, i.comentario,
+                {$del('i.')}, COALESCE(i.fecha_recepcion, now()), now()
             FROM {$schema}.invitaciones i
             LEFT JOIN cat_tipos_evento t ON t.id = NULLIF(i.tipo, 0)
             LEFT JOIN tbl_eventos e ON e.id = NULLIF(i.id_evento, 0)");

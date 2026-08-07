@@ -3,24 +3,30 @@
 namespace App\Support;
 
 use App\Models\CatAccion;
+use App\Models\CatAntagonico;
 use App\Models\CatArea;
 use App\Models\CatConcepto;
 use App\Models\CatDependencia;
 use App\Models\CatEje;
-use App\Models\CatNivelViolencia;
-use App\Models\CatOrigenDenuncia;
-use App\Models\CatRubro;
-use App\Models\CatSegSector;
-use App\Models\CatTipoIncidencia;
 use App\Models\CatEstadoCivil;
+use App\Models\CatFiliacion;
+use App\Models\CatInfluencia;
+use App\Models\CatLider;
+use App\Models\CatNivelViolencia;
 use App\Models\CatOcupacion;
+use App\Models\CatOrigenDenuncia;
 use App\Models\CatOrigenRecurso;
 use App\Models\CatOrigenSolicitud;
+use App\Models\CatPedEje;
+use App\Models\CatPedSubeje;
 use App\Models\CatProfesion;
+use App\Models\CatRubro;
 use App\Models\CatSector;
 use App\Models\CatSectorOrganizacion;
+use App\Models\CatSegSector;
 use App\Models\CatSubeje;
 use App\Models\CatTipoEvento;
+use App\Models\CatTipoIncidencia;
 use App\Models\CatUnidadMedida;
 use Illuminate\Database\Eloquent\Model;
 
@@ -50,6 +56,26 @@ class CatalogoRegistry
             'sectores' => [
                 'label' => 'Sectores de población',
                 'model' => CatSector::class,
+                'campos' => [$texto('nombre', 'Nombre')],
+            ],
+            'filiaciones' => [
+                'label' => 'Filiaciones partidistas',
+                'model' => CatFiliacion::class,
+                'campos' => [$texto('nombre', 'Nombre')],
+            ],
+            'antagonicos' => [
+                'label' => 'Antagónicos',
+                'model' => CatAntagonico::class,
+                'campos' => [$texto('nombre', 'Nombre')],
+            ],
+            'lideres' => [
+                'label' => 'Tipos de liderazgo',
+                'model' => CatLider::class,
+                'campos' => [$texto('nombre', 'Nombre')],
+            ],
+            'influencias' => [
+                'label' => 'Grados de influencia',
+                'model' => CatInfluencia::class,
                 'campos' => [$texto('nombre', 'Nombre')],
             ],
             'sectores_organizacion' => [
@@ -117,6 +143,19 @@ class CatalogoRegistry
                 'campos' => [
                     $texto('nombre', 'Nombre'),
                     ['name' => 'eje_id', 'label' => 'Eje', 'type' => 'select', 'required' => false, 'options' => CatEje::class],
+                ],
+            ],
+            'ped_ejes' => [
+                'label' => 'Ejes (PED)',
+                'model' => CatPedEje::class,
+                'campos' => [$texto('nombre', 'Nombre')],
+            ],
+            'ped_subejes' => [
+                'label' => 'Subejes (PED)',
+                'model' => CatPedSubeje::class,
+                'campos' => [
+                    $texto('nombre', 'Nombre'),
+                    ['name' => 'eje_id', 'label' => 'Eje', 'type' => 'select', 'required' => false, 'options' => CatPedEje::class],
                 ],
             ],
             'rubros' => [

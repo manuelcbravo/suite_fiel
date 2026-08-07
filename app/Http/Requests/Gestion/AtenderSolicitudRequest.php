@@ -17,7 +17,7 @@ class AtenderSolicitudRequest extends FormRequest
 
         return [
             'decision' => ['required', 'in:temporal,rapida,resolver'],
-            'respuesta' => ['nullable', 'string'],
+            'respuesta' => ['required', 'string'],
             'avance' => ['nullable', 'integer', 'between:0,100'],
             'apoyo' => $texto,
             'cantidad' => $texto,

@@ -1,28 +1,23 @@
-import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
+    ArrowRight,
+    ChevronDown,
+    ClipboardCheck,
     ClipboardList,
-    Eye,
+    FolderSearch,
     MoreHorizontal,
     Pencil,
     Plus,
-    Send,
+    RefreshCw,
+    Search,
     Trash2,
+    UserPen,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { AsyncSearchPicker } from '@/components/async-search-picker';
-import { BeneficiarioPicker } from '@/components/beneficiario-picker';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
-import { CrudFormDialog } from '@/components/crud-form-dialog';
-import { DataTable } from '@/components/data-table';
-import type { DataTableColumn, DataTableServer } from '@/components/data-table';
-import { FormInputField } from '@/components/form-input-field';
-import { MultiCheckField } from '@/components/multi-check-field';
 import { SelectField } from '@/components/select-field';
-import { UbicacionSelects } from '@/components/ubicacion-selects';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -30,136 +25,73 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Field } from '@/components/ui/field';
-import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { resolveFormErrorMessage } from '@/lib/form-error-message';
-import { destroy, index, store } from '@/routes/gestion/solicitudes';
+import { destroy, index } from '@/routes/gestion/solicitudes';
+import { AtenderDialog } from './atender-dialog';
+import { selloDe } from './estatus';
+import { SeguimientoDialog } from './seguimiento-dialog';
+import { SolicitudFormDialog } from './solicitud-form-dialog';
+import type {
+    CamposBusqueda,
+    Filtros,
+    Grupo,
+    Opciones,
+    PaginacionBloque,
+    Solicitud,
+} from './types';
+import {
+    puedeAtender,
+    puedeEditar,
+    puedeEliminar,
+    puedeSeguimiento,
+    puedeVerificar,
+} from './types';
+import { VerificacionDialog } from './verificacion-dialog';
 
-type Opcion = { id: number; nombre: string };
-type AreaOpcion = Opcion & { dependencia_id: number | null };
-type Solicitud = {
-    id: number;
-    folio: string | null;
-    folio_sistema: string | null;
-    solicitud: string | null;
-    status: number;
-    status_label: string;
-    control_administrativo: boolean;
-    prioridad: number | null;
-    fecha_recepcion: string | null;
-    concepto_id: number | null;
-    procedencia_id: number | null;
-    apoyo: string | null;
-    cantidad: string | null;
-    monto: string | null;
-    desc_bene: string | null;
-    num_bene: string | null;
-    solicitante_id: number | null;
-    solicitante_tipo: string | null;
-    solicitante_nombre: string | null;
-    municipio_resp_nombre: string | null;
-    estado_resp_id: number | null;
-    municipio_resp_id: number | null;
-    localidad_resp_id: number | null;
-    unidad_medida_id: number | null;
-    origen_recurso_id: number | null;
-    folio_resp: string | null;
-    fecha_resp: string | null;
-    rubros: number[];
-    sectores: number[];
-    seguimientos_count: number;
-};
-type Seguimiento = {
-    id: number;
-    estatus: number | null;
-    estatus_label: string;
-    dependencia_id: number | null;
-    dependencia: string | null;
-    area_id: number | null;
-    area: string | null;
-    instruccion: string | null;
-    respuesta: string | null;
-    responsable: string | null;
-    avance: number | null;
-    fecha: string | null;
-    fecha_respuesta: string | null;
-};
-type Verificacion = {
-    id: number;
-    fecha: string | null;
-    atendido: number | null;
-    satisfecho_label: string | null;
-    comentario: string | null;
-    autor: string | null;
-};
-type Opciones = {
-    estatus: Opcion[];
-    conceptos: Opcion[];
-    procedencias: Opcion[];
-    rubros: Opcion[];
-    sectores: Opcion[];
-    estados: Opcion[];
-    dependencias: Opcion[];
-    areas: AreaOpcion[];
-    unidadesMedida: Opcion[];
-    origenesRecurso: Opcion[];
-};
-type Form = Record<string, string | number | boolean | number[] | null>;
+/** Casillas "buscar por" del legacy, en el mismo orden. */
+const CAMPOS: { clave: keyof CamposBusqueda; etiqueta: string }[] = [
+    { clave: 'solicitante', etiqueta: 'Nombre del solicitante' },
+    { clave: 'telefono', etiqueta: 'Teléfono del solicitante' },
+    { clave: 'celular', etiqueta: 'Celular del solicitante' },
+    { clave: 'organizacion', etiqueta: 'Organización solicitante' },
+    { clave: 'tel_org', etiqueta: 'Teléfono de la organización' },
+    { clave: 'cel_org', etiqueta: 'Celular de la organización' },
+    { clave: 'solicitud', etiqueta: 'Solicitud' },
+    { clave: 'folio', etiqueta: 'Folio de la solicitud' },
+    { clave: 'beneficiario', etiqueta: 'Beneficiario' },
+];
 
-const STATUS_VARIANT: Record<
-    number,
-    'default' | 'secondary' | 'destructive' | 'outline'
-> = {
-    0: 'secondary',
-    1: 'default',
-    2: 'destructive',
-    3: 'outline',
-    4: 'outline',
-    5: 'default',
-    6: 'default',
-};
-
-const CAMPOS_INICIALES: Form = {
-    id: null,
-    solicitante_tipo: 'beneficiario',
-    beneficiario_id: null,
-    organizacion_id: null,
-    folio: '',
-    folio_sistema: '',
-    solicitud: '',
-    apoyo: '',
-    desc_bene: '',
-    cantidad: '',
-    monto: '',
-    num_bene: '',
-    concepto_id: null,
-    procedencia_id: null,
-    origen: '',
-    status: 0,
-    control_administrativo: false,
-    prioridad: null,
-    fecha_recepcion: '',
-    estado_resp_id: null,
-    municipio_resp_id: null,
-    localidad_resp_id: null,
-    rubros: [],
-    sectores: [],
-};
+type Accion =
+    // Sin grupo = alta desde el botón general: el diálogo pide el solicitante.
+    | { tipo: 'alta'; grupo: Grupo | null }
+    | { tipo: 'editar'; solicitud: Solicitud }
+    | { tipo: 'seguimiento'; solicitud: Solicitud }
+    | { tipo: 'atender'; solicitud: Solicitud }
+    | { tipo: 'verificar'; solicitud: Solicitud }
+    | null;
 
 export default function SolicitudesIndex({
-    solicitudes,
+    buscado,
+    filtros,
+    personas,
+    organizaciones,
     paginacion,
     opciones,
 }: {
-    solicitudes: Solicitud[];
-    paginacion: DataTableServer;
+    buscado: boolean;
+    filtros: Filtros;
+    personas: Grupo[];
+    organizaciones: Grupo[];
+    paginacion: {
+        personas: PaginacionBloque;
+        organizaciones: PaginacionBloque;
+    };
     opciones: Opciones;
 }) {
-    const [formMode, setFormMode] = useState<'create' | 'edit' | null>(null);
-    const [editando, setEditando] = useState<Solicitud | null>(null);
+    const [accion, setAccion] = useState<Accion>(null);
     const [eliminar, setEliminar] = useState<Solicitud | null>(null);
-    const [detalle, setDetalle] = useState<Solicitud | null>(null);
-    const form = useForm<Form>(CAMPOS_INICIALES);
+    const [form, setForm] = useState<Filtros>(filtros);
     const { flash } = usePage().props;
 
     useEffect(() => {
@@ -172,153 +104,24 @@ export default function SolicitudesIndex({
         }
     }, [flash?.error, flash?.success]);
 
-    const abrirCrear = () => {
-        setEditando(null);
-        form.clearErrors();
-        form.setData(CAMPOS_INICIALES);
-        setFormMode('create');
-    };
-
-    const abrirEditar = (s: Solicitud) => {
-        setEditando(s);
-        form.clearErrors();
-        const esOrg = s.solicitante_tipo === 'Organizacion';
-        form.setData({
-            id: s.id,
-            solicitante_tipo: esOrg ? 'organizacion' : 'beneficiario',
-            beneficiario_id: esOrg ? null : (s.solicitante_id ?? null),
-            organizacion_id: esOrg ? (s.solicitante_id ?? null) : null,
-            folio: s.folio ?? '',
-            folio_sistema: s.folio_sistema ?? '',
-            solicitud: s.solicitud ?? '',
-            apoyo: s.apoyo ?? '',
-            desc_bene: s.desc_bene ?? '',
-            cantidad: s.cantidad ?? '',
-            monto: s.monto ?? '',
-            num_bene: s.num_bene ?? '',
-            concepto_id: s.concepto_id,
-            procedencia_id: s.procedencia_id,
-            origen: '',
-            status: s.status,
-            control_administrativo: s.control_administrativo,
-            prioridad: s.prioridad,
-            fecha_recepcion: s.fecha_recepcion ?? '',
-            estado_resp_id: s.estado_resp_id,
-            municipio_resp_id: s.municipio_resp_id,
-            localidad_resp_id: s.localidad_resp_id,
-            rubros: s.rubros,
-            sectores: s.sectores,
-        });
-        setFormMode('edit');
-    };
-
-    const cerrar = (open: boolean) => {
-        if (!open) {
-            setFormMode(null);
-            setEditando(null);
-            form.clearErrors();
-        }
-    };
-
-    const enviar = (event: React.FormEvent<HTMLFormElement>) => {
+    const buscar = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        form.post(store.url(), {
-            preserveScroll: true,
-            onSuccess: () => {
-                setFormMode(null);
-                setEditando(null);
-                form.reset();
-            },
-            onError: (errores) =>
-                toast.error(
-                    resolveFormErrorMessage(
-                        errores,
-                        'Verifica los campos marcados.',
-                    ),
+        router.get(
+            index.url(),
+            {
+                q: form.q,
+                dependencia_id: form.dependencia_id ?? '',
+                estatus: form.estatus ?? '',
+                campos: Object.fromEntries(
+                    Object.entries(form.campos).map(([k, v]) => [
+                        k,
+                        v ? '1' : '0',
+                    ]),
                 ),
-        });
+            },
+            { preserveState: true, preserveScroll: true },
+        );
     };
-
-    const texto = (clave: string, label: string) => (
-        <FormInputField
-            id={`sol-${clave}`}
-            label={label}
-            value={(form.data[clave] as string) ?? ''}
-            error={form.errors[clave]}
-            onChange={(e) => form.setData(clave, e.target.value)}
-        />
-    );
-
-    const columns: DataTableColumn<Solicitud>[] = [
-        {
-            key: 'folio',
-            header: 'Folio',
-            accessor: (row) => row.folio,
-            cell: (row) => (
-                <span className="font-medium">
-                    {row.folio || row.folio_sistema || `#${row.id}`}
-                </span>
-            ),
-        },
-        {
-            key: 'solicitante',
-            header: 'Solicitante',
-            cell: (row) => row.solicitante_nombre || '—',
-        },
-        {
-            key: 'solicitud',
-            header: 'Solicitud',
-            cell: (row) => (
-                <span className="line-clamp-1 max-w-xs text-sm text-muted-foreground">
-                    {row.solicitud || '—'}
-                </span>
-            ),
-        },
-        {
-            key: 'status',
-            header: 'Estatus',
-            cell: (row) => (
-                <Badge variant={STATUS_VARIANT[row.status] ?? 'secondary'}>
-                    {row.status_label}
-                </Badge>
-            ),
-        },
-        {
-            key: 'seg',
-            header: 'Seg.',
-            className: 'w-14 text-center',
-            cell: (row) => row.seguimientos_count,
-        },
-        {
-            key: 'actions',
-            header: '',
-            className: 'w-14',
-            cell: (row) => (
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="size-8">
-                            <MoreHorizontal className="size-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setDetalle(row)}>
-                            <Eye className="mr-2 size-4" /> Ver / turnar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => abrirEditar(row)}>
-                            <Pencil className="mr-2 size-4" /> Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => setEliminar(row)}
-                        >
-                            <Trash2 className="mr-2 size-4" /> Eliminar
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            ),
-        },
-    ];
 
     return (
         <>
@@ -337,195 +140,176 @@ export default function SolicitudesIndex({
                                 </p>
                             </div>
                         </div>
-                        <Button onClick={abrirCrear}>
-                            <Plus className="mr-2 size-4" /> Nueva
+                        <Button
+                            onClick={() =>
+                                setAccion({ tipo: 'alta', grupo: null })
+                            }
+                        >
+                            <Plus className="mr-2 size-4" /> Agregar solicitud
                         </Button>
                     </div>
                 </div>
 
-                <DataTable
-                    columns={columns}
-                    data={solicitudes}
-                    server={paginacion}
-                    searchPlaceholder="Buscar por folio o descripción..."
-                />
-            </div>
-
-            {/* Alta / edición */}
-            <CrudFormDialog
-                open={formMode !== null}
-                onOpenChange={cerrar}
-                size="xl"
-                title={
-                    formMode === 'edit' ? 'Editar solicitud' : 'Nueva solicitud'
-                }
-                description="Captura los datos de la solicitud."
-                submitLabel={formMode === 'edit' ? 'Guardar cambios' : 'Guardar'}
-                processing={form.processing}
-                onSubmit={enviar}
-            >
-                <Field>
-                    <Label>Tipo de solicitante</Label>
-                    <div className="flex gap-2">
-                        {(
-                            [
-                                ['beneficiario', 'Beneficiario'],
-                                ['organizacion', 'Organización'],
-                            ] as const
-                        ).map(([valor, etiqueta]) => (
-                            <Button
-                                key={valor}
-                                type="button"
-                                variant={
-                                    form.data.solicitante_tipo === valor
-                                        ? 'default'
-                                        : 'outline'
+                {/* Buscador del legacy: texto + dependencia + estatus + campos. */}
+                <form
+                    className="space-y-4 rounded-xl border border-sidebar-border/70 bg-card p-4"
+                    onSubmit={buscar}
+                >
+                    <div className="grid items-end gap-3 md:grid-cols-12">
+                        <div className="space-y-1.5 md:col-span-5">
+                            <Eyebrow>Qué buscas</Eyebrow>
+                            <div className="relative">
+                                <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    className="pl-9"
+                                    placeholder="Nombre, teléfono, folio o texto de la solicitud"
+                                    value={form.q}
+                                    onChange={(e) =>
+                                        setForm({ ...form, q: e.target.value })
+                                    }
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-1.5 md:col-span-3">
+                            <Eyebrow>Dependencia</Eyebrow>
+                            <SelectField
+                                label=""
+                                placeholder="Todas"
+                                emptyLabel="Todas"
+                                value={form.dependencia_id}
+                                options={opciones.dependencias}
+                                onChange={(v) =>
+                                    setForm({ ...form, dependencia_id: v })
                                 }
-                                size="sm"
-                                onClick={() =>
-                                    form.setData({
-                                        ...form.data,
-                                        solicitante_tipo: valor,
-                                        beneficiario_id: null,
-                                        organizacion_id: null,
-                                    })
+                            />
+                        </div>
+                        <div className="space-y-1.5 md:col-span-2">
+                            <Eyebrow>Estatus</Eyebrow>
+                            <SelectField
+                                label=""
+                                placeholder="Todos"
+                                emptyLabel="Todos"
+                                value={form.estatus}
+                                options={opciones.estatus}
+                                onChange={(v) =>
+                                    setForm({ ...form, estatus: v })
                                 }
-                            >
-                                {etiqueta}
+                            />
+                        </div>
+                        <div className="md:col-span-2">
+                            <Button type="submit" className="w-full">
+                                <Search className="mr-2 size-4" /> Buscar
                             </Button>
+                        </div>
+                    </div>
+
+                    {/* Los 9 campos del legacy, como interruptores: ocupan una
+                        línea en vez de una rejilla y se ve cuáles están activos. */}
+                    <div className="flex flex-wrap items-center gap-2 border-t pt-3">
+                        <Eyebrow className="mr-1">Buscar por</Eyebrow>
+                        {CAMPOS.map(({ clave, etiqueta }) => (
+                            <label
+                                key={clave}
+                                className="cursor-pointer text-sm"
+                            >
+                                <input
+                                    type="checkbox"
+                                    className="peer sr-only"
+                                    checked={form.campos[clave]}
+                                    onChange={(e) =>
+                                        setForm({
+                                            ...form,
+                                            campos: {
+                                                ...form.campos,
+                                                [clave]: e.target.checked,
+                                            },
+                                        })
+                                    }
+                                />
+                                <span className="inline-flex rounded-full border px-3 py-1 text-xs text-muted-foreground transition-colors peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-[3px] peer-focus-visible:ring-ring/50 hover:bg-accent">
+                                    {etiqueta}
+                                </span>
+                            </label>
                         ))}
                     </div>
-                </Field>
+                </form>
 
-                {form.data.solicitante_tipo === 'organizacion' ? (
-                    <AsyncSearchPicker
-                        label="Solicitante (organización)"
-                        searchUrl="/directorio/organizaciones/buscar"
-                        placeholder="Buscar organización (mín. 2 letras)..."
-                        value={form.data.organizacion_id as number | null}
-                        valueLabel={
-                            editando?.solicitante_tipo === 'Organizacion'
-                                ? editando.solicitante_nombre
-                                : null
-                        }
-                        error={form.errors.organizacion_id}
-                        onChange={(id) => form.setData('organizacion_id', id)}
+                {!buscado ? (
+                    <Vacio
+                        titulo="Empieza por buscar"
+                        texto="Escribe un nombre, un folio o filtra por dependencia o estatus para abrir los expedientes."
+                    />
+                ) : personas.length === 0 && organizaciones.length === 0 ? (
+                    <Vacio
+                        titulo="Sin coincidencias"
+                        texto="Ningún solicitante coincide con esos filtros. Prueba con menos campos marcados o quita el estatus."
                     />
                 ) : (
-                    <BeneficiarioPicker
-                        label="Solicitante (beneficiario)"
-                        value={form.data.beneficiario_id as number | null}
-                        valueLabel={
-                            editando?.solicitante_tipo !== 'Organizacion'
-                                ? editando?.solicitante_nombre
-                                : null
-                        }
-                        error={form.errors.beneficiario_id}
-                        onChange={(id) => form.setData('beneficiario_id', id)}
-                    />
+                    <>
+                        <div className="flex justify-end">
+                            <Button variant="outline" asChild>
+                                <Link href="/directorio/beneficiarios">
+                                    Agregar Solicitante
+                                </Link>
+                            </Button>
+                        </div>
+
+                        {/* Cada bloque sólo aparece si trajo resultados, para
+                            no repetir dos veces el mismo "sin resultados". */}
+                        {personas.length > 0 && (
+                            <TablaSolicitantes
+                                titulo="Solicitantes"
+                                grupos={personas}
+                                paginacion={paginacion.personas}
+                                filtros={filtros}
+                                onAccion={setAccion}
+                                onEliminar={setEliminar}
+                            />
+                        )}
+
+                        {organizaciones.length > 0 && (
+                            <TablaSolicitantes
+                                titulo="Organizaciones"
+                                grupos={organizaciones}
+                                paginacion={paginacion.organizaciones}
+                                filtros={filtros}
+                                onAccion={setAccion}
+                                onEliminar={setEliminar}
+                            />
+                        )}
+                    </>
                 )}
+            </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                    {texto('folio', 'Folio')}
-                    {texto('fecha_recepcion', 'Fecha de recepción')}
-                </div>
-
-                <Field>
-                    <Label htmlFor="sol-solicitud">Descripción</Label>
-                    <textarea
-                        id="sol-solicitud"
-                        className="min-h-20 w-full rounded-md border bg-transparent px-3 py-2 text-sm"
-                        value={(form.data.solicitud as string) ?? ''}
-                        onChange={(e) => form.setData('solicitud', e.target.value)}
-                    />
-                </Field>
-
-                <div className="grid gap-4 sm:grid-cols-3">
-                    {texto('apoyo', 'Apoyo')}
-                    {texto('cantidad', 'Cantidad')}
-                    {texto('monto', 'Monto')}
-                    <SelectField
-                        label="Concepto"
-                        value={form.data.concepto_id as number | null}
-                        options={opciones.conceptos}
-                        error={form.errors.concepto_id}
-                        onChange={(v) => form.setData('concepto_id', v)}
-                    />
-                    <SelectField
-                        label="Procedencia"
-                        value={form.data.procedencia_id as number | null}
-                        options={opciones.procedencias}
-                        error={form.errors.procedencia_id}
-                        onChange={(v) => form.setData('procedencia_id', v)}
-                    />
-                    <SelectField
-                        label="Estatus"
-                        value={form.data.status as number | null}
-                        options={opciones.estatus}
-                        error={form.errors.status}
-                        onChange={(v) => form.setData('status', v ?? 0)}
-                    />
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                    <MultiCheckField
-                        label="Rubros"
-                        options={opciones.rubros}
-                        value={form.data.rubros as number[]}
-                        error={form.errors.rubros}
-                        onChange={(v) => form.setData('rubros', v)}
-                    />
-                    <MultiCheckField
-                        label="Sectores"
-                        options={opciones.sectores}
-                        value={form.data.sectores as number[]}
-                        error={form.errors.sectores}
-                        onChange={(v) => form.setData('sectores', v)}
-                    />
-                </div>
-
-                <label className="flex items-center gap-2 text-sm">
-                    <Checkbox
-                        checked={form.data.control_administrativo as boolean}
-                        onCheckedChange={(v) =>
-                            form.setData('control_administrativo', Boolean(v))
-                        }
-                    />
-                    Solicitud de control administrativo
-                </label>
-
-                <div className="space-y-2 border-t pt-4">
-                    <p className="text-sm font-semibold text-muted-foreground">
-                        Ubicación de la respuesta
-                    </p>
-                    <UbicacionSelects
-                        estados={opciones.estados}
-                        value={{
-                            estado_id: form.data.estado_resp_id as number | null,
-                            municipio_id: form.data
-                                .municipio_resp_id as number | null,
-                            localidad_id: form.data
-                                .localidad_resp_id as number | null,
-                        }}
-                        municipioNombre={editando?.municipio_resp_nombre}
-                        onChange={(patch) =>
-                            form.setData({
-                                ...form.data,
-                                estado_resp_id: patch.estado_id ?? null,
-                                municipio_resp_id: patch.municipio_id ?? null,
-                                localidad_resp_id: patch.localidad_id ?? null,
-                            })
-                        }
-                    />
-                </div>
-            </CrudFormDialog>
-
-            {/* Detalle + seguimientos */}
-            {detalle && (
-                <DetalleSolicitud
-                    solicitud={detalle}
+            {(accion?.tipo === 'alta' || accion?.tipo === 'editar') && (
+                <SolicitudFormDialog
+                    solicitud={accion.tipo === 'editar' ? accion.solicitud : null}
+                    grupo={accion.tipo === 'alta' ? accion.grupo : null}
                     opciones={opciones}
-                    onClose={() => setDetalle(null)}
+                    onClose={() => setAccion(null)}
+                />
+            )}
+
+            {accion?.tipo === 'seguimiento' && (
+                <SeguimientoDialog
+                    solicitud={accion.solicitud}
+                    opciones={opciones}
+                    onClose={() => setAccion(null)}
+                />
+            )}
+
+            {accion?.tipo === 'atender' && (
+                <AtenderDialog
+                    solicitud={accion.solicitud}
+                    opciones={opciones}
+                    onClose={() => setAccion(null)}
+                />
+            )}
+
+            {accion?.tipo === 'verificar' && (
+                <VerificacionDialog
+                    solicitud={accion.solicitud}
+                    onClose={() => setAccion(null)}
                 />
             )}
 
@@ -534,7 +318,11 @@ export default function SolicitudesIndex({
                 onOpenChange={(open) => !open && setEliminar(null)}
                 title="Eliminar solicitud"
                 entityLabel="la solicitud"
-                itemName={eliminar?.folio ?? `#${eliminar?.id}`}
+                itemName={
+                    eliminar?.folio_sistema ??
+                    eliminar?.folio ??
+                    `#${eliminar?.id}`
+                }
                 onConfirm={() => {
                     if (!eliminar) {
                         return;
@@ -557,578 +345,382 @@ export default function SolicitudesIndex({
     );
 }
 
-function DetalleSolicitud({
-    solicitud,
-    opciones,
-    onClose,
+/**
+ * Tabla agrupada del legacy: una fila por solicitante y, debajo, una fila por
+ * cada una de sus solicitudes con los botones que apliquen a su estatus.
+ */
+function TablaSolicitantes({
+    titulo,
+    grupos,
+    paginacion,
+    filtros,
+    onAccion,
+    onEliminar,
 }: {
-    solicitud: Solicitud;
-    opciones: Opciones;
-    onClose: () => void;
+    titulo: string;
+    grupos: Grupo[];
+    paginacion: PaginacionBloque;
+    /** Los filtros aplicados, para pedir más solicitudes con el mismo criterio. */
+    filtros: Filtros;
+    onAccion: (accion: Accion) => void;
+    onEliminar: (solicitud: Solicitud) => void;
 }) {
-    const [seguimientos, setSeguimientos] = useState<Seguimiento[]>([]);
-    const [verificaciones, setVerificaciones] = useState<Verificacion[]>([]);
-    const turnar = useForm<{
-        dependencia_id: number | null;
-        area_id: number | null;
-        instruccion: string;
-    }>({ dependencia_id: null, area_id: null, instruccion: '' });
-    const verif = useForm<{ comentario: string; atendido: number | null }>({
-        comentario: '',
-        atendido: null,
-    });
-
-    const cargar = () => {
-        fetch(`/gestion/solicitudes/${solicitud.id}/seguimientos`, {
-            headers: { Accept: 'application/json' },
-            credentials: 'same-origin',
-        })
-            .then((r) => (r.ok ? r.json() : []))
-            .then((data) => setSeguimientos(data as Seguimiento[]));
-    };
-
-    const cargarVerif = () => {
-        fetch(`/gestion/solicitudes/${solicitud.id}/verificaciones`, {
-            headers: { Accept: 'application/json' },
-            credentials: 'same-origin',
-        })
-            .then((r) => (r.ok ? r.json() : []))
-            .then((data) => setVerificaciones(data as Verificacion[]));
-    };
-
-    useEffect(() => {
-        cargar();
-        cargarVerif();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [solicitud.id]);
-
-    const enviarVerif = (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        verif.post(`/gestion/solicitudes/${solicitud.id}/verificaciones`, {
-            preserveScroll: true,
-            onSuccess: () => {
-                verif.reset();
-                cargarVerif();
-            },
-            onError: () => toast.error('Revisa la verificación.'),
-        });
-    };
-
-    const areasFiltradas = opciones.areas.filter(
-        (a) =>
-            turnar.data.dependencia_id === null ||
-            a.dependencia_id === turnar.data.dependencia_id,
+    const solicitudes = grupos.reduce(
+        (total, g) => total + g.solicitudes.length,
+        0,
     );
 
-    const enviarTurnado = (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        turnar.post(`/gestion/solicitudes/${solicitud.id}/seguimientos`, {
-            preserveScroll: true,
-            onSuccess: () => {
-                turnar.reset();
-                cargar();
-            },
-            onError: () => toast.error('Revisa los datos del turnado.'),
-        });
-    };
-
     return (
-        <CrudFormDialog
-            open
-            onOpenChange={(o) => !o && onClose()}
-            size="lg"
-            showFooter={false}
-            title={`Solicitud ${solicitud.folio || `#${solicitud.id}`}`}
-            description={solicitud.solicitante_nombre ?? ''}
-        >
-            <div className="space-y-4">
-                <div className="rounded-md border p-3 text-sm">
-                    <p className="mb-1">
-                        <Badge
-                            variant={
-                                STATUS_VARIANT[solicitud.status] ?? 'secondary'
-                            }
-                        >
-                            {solicitud.status_label}
-                        </Badge>
-                    </p>
-                    <p className="text-muted-foreground">
-                        {solicitud.solicitud || 'Sin descripción.'}
-                    </p>
-                </div>
+        <div className="space-y-3">
+            <div className="flex items-baseline gap-3">
+                <h2 className="text-base font-semibold tracking-tight">
+                    {titulo}
+                </h2>
+                <span className="text-xs text-muted-foreground">
+                    {grupos.length}{' '}
+                    {grupos.length === 1 ? 'expediente' : 'expedientes'} ·{' '}
+                    {solicitudes}{' '}
+                    {solicitudes === 1 ? 'solicitud' : 'solicitudes'}
+                </span>
+            </div>
 
-                <div>
-                    <h3 className="mb-2 text-sm font-semibold">
-                        Seguimientos ({seguimientos.length})
-                    </h3>
-                    <div className="space-y-2">
-                        {seguimientos.length === 0 && (
-                            <p className="text-sm text-muted-foreground">
-                                Sin seguimientos aún.
-                            </p>
-                        )}
-                        {seguimientos.map((sg) => (
-                            <SeguimientoItem
-                                key={sg.id}
-                                seguimiento={sg}
-                                areas={opciones.areas}
-                                onCambio={cargar}
+            <div className="overflow-x-auto rounded-xl border border-sidebar-border/70 bg-card">
+                <table className="w-full min-w-[900px] border-collapse text-sm">
+                    <thead>
+                        <tr className="bg-muted/40 text-left">
+                            {[
+                                'Solicitante',
+                                'Localidad',
+                                'Teléfonos',
+                                'Folio / Solicitud',
+                                'Beneficiario',
+                                'Estatus',
+                                '',
+                            ].map((th, i) => (
+                                <th
+                                    key={i}
+                                    className="border-b px-3 py-2.5 text-[11px] font-medium tracking-wider whitespace-nowrap text-muted-foreground uppercase"
+                                >
+                                    {th}
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {grupos.map((grupo, i) => (
+                            <FilasGrupo
+                                key={`${grupo.tipo}-${grupo.id}`}
+                                grupo={grupo}
+                                primero={i === 0}
+                                filtros={filtros}
+                                onAccion={onAccion}
+                                onEliminar={onEliminar}
                             />
                         ))}
-                    </div>
-                </div>
-
-                <form
-                    className="space-y-3 border-t pt-4"
-                    onSubmit={enviarTurnado}
-                >
-                    <p className="text-sm font-semibold">Turnar a dependencia</p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                        <SelectField
-                            label="Dependencia"
-                            value={turnar.data.dependencia_id}
-                            options={opciones.dependencias}
-                            error={turnar.errors.dependencia_id}
-                            onChange={(v) => {
-                                turnar.setData('dependencia_id', v);
-                                turnar.setData('area_id', null);
-                            }}
-                        />
-                        <SelectField
-                            label="Área"
-                            value={turnar.data.area_id}
-                            options={areasFiltradas}
-                            onChange={(v) => turnar.setData('area_id', v)}
-                            disabled={turnar.data.dependencia_id === null}
-                        />
-                    </div>
-                    <Field>
-                        <Label htmlFor="turnar-instr">Instrucción</Label>
-                        <textarea
-                            id="turnar-instr"
-                            className="min-h-16 w-full rounded-md border bg-transparent px-3 py-2 text-sm"
-                            value={turnar.data.instruccion}
-                            onChange={(e) =>
-                                turnar.setData('instruccion', e.target.value)
-                            }
-                        />
-                    </Field>
-                    <Button type="submit" disabled={turnar.processing}>
-                        <Send className="mr-2 size-4" /> Turnar
-                    </Button>
-                </form>
-
-                <AtenderSolicitud solicitud={solicitud} opciones={opciones} />
-
-                <div className="border-t pt-4">
-                    <h3 className="mb-2 text-sm font-semibold">
-                        Verificaciones ({verificaciones.length})
-                    </h3>
-                    <div className="space-y-2">
-                        {verificaciones.length === 0 && (
-                            <p className="text-sm text-muted-foreground">
-                                Sin verificaciones.
-                            </p>
-                        )}
-                        {verificaciones.map((v) => (
-                            <div
-                                key={v.id}
-                                className="rounded-md border p-3 text-sm"
-                            >
-                                <p className="whitespace-pre-wrap">
-                                    {v.comentario}
-                                </p>
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                    {v.fecha ?? ''}
-                                    {v.satisfecho_label
-                                        ? ` · Satisfacción: ${v.satisfecho_label}`
-                                        : ''}
-                                    {v.autor ? ` · ${v.autor}` : ''}
-                                </p>
-                            </div>
-                        ))}
-                    </div>
-                    <form className="mt-3 space-y-2" onSubmit={enviarVerif}>
-                        <textarea
-                            className="min-h-16 w-full rounded-md border bg-transparent px-3 py-2 text-sm"
-                            placeholder="Registrar verificación / seguimiento de satisfacción..."
-                            value={verif.data.comentario}
-                            onChange={(e) =>
-                                verif.setData('comentario', e.target.value)
-                            }
-                        />
-                        <Button
-                            type="submit"
-                            size="sm"
-                            variant="outline"
-                            disabled={verif.processing}
-                        >
-                            Registrar verificación
-                        </Button>
-                    </form>
-                </div>
+                    </tbody>
+                </table>
             </div>
-        </CrudFormDialog>
-    );
-}
 
-function SeguimientoItem({
-    seguimiento,
-    areas,
-    onCambio,
-}: {
-    seguimiento: Seguimiento;
-    areas: AreaOpcion[];
-    onCambio: () => void;
-}) {
-    const [respondiendo, setRespondiendo] = useState(false);
-    const [reasignando, setReasignando] = useState(false);
-    const responder = useForm<{ respuesta: string }>({ respuesta: '' });
-    const reasignar = useForm<{ area_id: number | null }>({
-        area_id: seguimiento.area_id,
-    });
-
-    // Solo direcciones de la dependencia a la que se turnó (drccn legacy).
-    const areasDependencia = areas.filter(
-        (a) =>
-            seguimiento.dependencia_id === null ||
-            a.dependencia_id === seguimiento.dependencia_id,
-    );
-
-    const enviar = (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        responder.put(`/gestion/seguimientos/${seguimiento.id}/responder`, {
-            preserveScroll: true,
-            onSuccess: () => {
-                setRespondiendo(false);
-                responder.reset();
-                onCambio();
-            },
-            onError: () => toast.error('No se pudo registrar la respuesta.'),
-        });
-    };
-
-    const enviarReasignacion = (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        reasignar.put(`/gestion/seguimientos/${seguimiento.id}/reasignar`, {
-            preserveScroll: true,
-            onSuccess: () => {
-                setReasignando(false);
-                onCambio();
-            },
-            onError: () =>
-                toast.error('No se pudo reasignar la dirección.'),
-        });
-    };
-
-    return (
-        <div className="rounded-md border p-3 text-sm">
-            <div className="flex items-center justify-between gap-2">
-                <span className="font-medium">
-                    {seguimiento.dependencia || 'Sin dependencia'}
-                    {seguimiento.area ? ` · ${seguimiento.area}` : ''}
-                </span>
-                <div className="flex items-center gap-2">
-                    {!seguimiento.respuesta && (
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 px-2 text-xs"
-                            onClick={() => setReasignando((v) => !v)}
-                        >
-                            Reasignar dirección
-                        </Button>
-                    )}
-                    <Badge variant="outline">{seguimiento.estatus_label}</Badge>
-                </div>
-            </div>
-            {reasignando && (
-                <form
-                    className="mt-2 flex items-end gap-2 border-t pt-2"
-                    onSubmit={enviarReasignacion}
-                >
-                    <div className="flex-1">
-                        <SelectField
-                            label="Dirección (área)"
-                            value={reasignar.data.area_id}
-                            options={areasDependencia}
-                            error={reasignar.errors.area_id}
-                            onChange={(v) => reasignar.setData('area_id', v)}
-                        />
-                    </div>
-                    <Button
-                        type="submit"
-                        size="sm"
-                        disabled={
-                            reasignar.processing ||
-                            reasignar.data.area_id === null
-                        }
-                    >
-                        Actualizar
-                    </Button>
-                </form>
-            )}
-            {seguimiento.instruccion && (
-                <p className="mt-1 text-muted-foreground">
-                    Instrucción: {seguimiento.instruccion}
-                </p>
-            )}
-            {seguimiento.respuesta ? (
-                <p className="mt-1">
-                    <span className="font-medium">Respuesta:</span>{' '}
-                    {seguimiento.respuesta}
-                </p>
-            ) : respondiendo ? (
-                <form className="mt-2 space-y-2" onSubmit={enviar}>
-                    <textarea
-                        className="min-h-16 w-full rounded-md border bg-transparent px-3 py-2 text-sm"
-                        placeholder="Respuesta..."
-                        value={responder.data.respuesta}
-                        onChange={(e) =>
-                            responder.setData('respuesta', e.target.value)
-                        }
-                    />
+            {paginacion && paginacion.lastPage > 1 && (
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>
+                        {paginacion.total} solicitantes · página{' '}
+                        {paginacion.currentPage} de {paginacion.lastPage}
+                    </span>
                     <div className="flex gap-2">
                         <Button
-                            type="submit"
+                            variant="outline"
                             size="sm"
-                            disabled={responder.processing}
+                            disabled={!paginacion.prevUrl}
+                            onClick={() =>
+                                paginacion.prevUrl &&
+                                router.visit(paginacion.prevUrl, {
+                                    preserveState: true,
+                                })
+                            }
                         >
-                            Guardar respuesta
+                            Anterior
                         </Button>
                         <Button
-                            type="button"
-                            size="sm"
                             variant="outline"
-                            onClick={() => setRespondiendo(false)}
+                            size="sm"
+                            disabled={!paginacion.nextUrl}
+                            onClick={() =>
+                                paginacion.nextUrl &&
+                                router.visit(paginacion.nextUrl, {
+                                    preserveState: true,
+                                })
+                            }
                         >
-                            Cancelar
+                            Siguiente
                         </Button>
                     </div>
-                </form>
-            ) : (
-                <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="mt-2"
-                    onClick={() => setRespondiendo(true)}
-                >
-                    Responder
-                </Button>
+                </div>
             )}
         </div>
     );
 }
 
-function AtenderSolicitud({
-    solicitud,
-    opciones,
+/** Rótulo pequeño que nombra un control o una zona de la pantalla. */
+function Eyebrow({
+    children,
+    className = '',
 }: {
-    solicitud: Solicitud;
-    opciones: Opciones;
+    children: React.ReactNode;
+    className?: string;
 }) {
-    const form = useForm<Record<string, string | number | number[] | null>>({
-        decision: 'resolver',
-        respuesta: '',
-        avance: '',
-        apoyo: solicitud.apoyo ?? '',
-        cantidad: solicitud.cantidad ?? '',
-        unidad_medida_id: solicitud.unidad_medida_id,
-        monto: solicitud.monto ?? '',
-        num_bene: solicitud.num_bene ?? '',
-        concepto_id: solicitud.concepto_id,
-        origen_recurso_id: solicitud.origen_recurso_id,
-        rubros: solicitud.rubros ?? [],
-        sectores: solicitud.sectores ?? [],
-        estado_resp_id: solicitud.estado_resp_id,
-        municipio_resp_id: solicitud.municipio_resp_id,
-        localidad_resp_id: solicitud.localidad_resp_id,
-        folio_resp: solicitud.folio_resp ?? '',
-        fecha_resp: solicitud.fecha_resp ?? '',
-    });
+    return (
+        <span
+            className={`block text-[11px] font-medium tracking-wider text-muted-foreground uppercase ${className}`}
+        >
+            {children}
+        </span>
+    );
+}
 
-    const enviar = (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        form.post(`/gestion/solicitudes/${solicitud.id}/atender`, {
-            preserveScroll: true,
-            onError: () => toast.error('Revisa los datos de la atención.'),
-        });
+/** Pantalla sin resultados: dice qué pasó y qué hacer. */
+function Vacio({ titulo, texto }: { titulo: string; texto: string }) {
+    return (
+        <div className="rounded-xl border border-dashed border-sidebar-border/70 px-6 py-14 text-center">
+            <FolderSearch className="mx-auto size-7 text-muted-foreground/60" />
+            <p className="mt-3 font-medium">{titulo}</p>
+            <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+                {texto}
+            </p>
+        </div>
+    );
+}
+
+/** Menú de acciones de una fila: icono + texto, para que se entienda qué hace. */
+function MenuAcciones({ children }: { children: React.ReactNode }) {
+    return (
+        <div className="flex justify-end">
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="size-8">
+                        <MoreHorizontal className="size-4" />
+                        <span className="sr-only">Acciones</span>
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">{children}</DropdownMenuContent>
+            </DropdownMenu>
+        </div>
+    );
+}
+
+function FilasGrupo({
+    grupo,
+    primero,
+    filtros,
+    onAccion,
+    onEliminar,
+}: {
+    grupo: Grupo;
+    /** El primer expediente no lleva la línea gruesa de separación. */
+    primero: boolean;
+    filtros: Filtros;
+    onAccion: (accion: Accion) => void;
+    onEliminar: (solicitud: Solicitud) => void;
+}) {
+    // Las que llegaron en la carga inicial más las tandas que se pidan después.
+    const [extra, setExtra] = useState<Solicitud[]>([]);
+    const [cargando, setCargando] = useState(false);
+
+    const solicitudes = [...grupo.solicitudes, ...extra];
+    const faltan = grupo.solicitudes_total - solicitudes.length;
+
+    const cargarMas = () => {
+        setCargando(true);
+        const params = new URLSearchParams({ desde: String(solicitudes.length) });
+
+        if (filtros.estatus !== null) {
+            params.set('estatus', String(filtros.estatus));
+        }
+
+        if (filtros.dependencia_id !== null) {
+            params.set('dependencia_id', String(filtros.dependencia_id));
+        }
+
+        fetch(
+            `/gestion/solicitantes/${grupo.tipo}/${grupo.id}/solicitudes?${params}`,
+            { headers: { Accept: 'application/json' }, credentials: 'same-origin' },
+        )
+            .then((r) => (r.ok ? r.json() : []))
+            .then((data) => setExtra((previas) => [...previas, ...(data as Solicitud[])]))
+            .catch(() => toast.error('No se pudieron cargar más solicitudes.'))
+            .finally(() => setCargando(false));
     };
 
-    const completo = form.data.decision !== 'temporal';
+    // Abre el Directorio con el diálogo de edición de este solicitante ya
+    // puesto, y con su nombre buscado para que al cerrarlo quede en pantalla.
+    const destino = `/directorio?${new URLSearchParams({
+        tab: grupo.tipo === 'organizacion' ? 'organizaciones' : 'individuos',
+        editar: String(grupo.id),
+        q: grupo.nombre,
+    })}`;
+
+    const separador = primero ? '' : 'border-t-2 border-t-border';
 
     return (
-        <form className="space-y-3 border-t pt-4" onSubmit={enviar}>
-            <p className="text-sm font-semibold">Atender / resolver</p>
-
-            <Field>
-                <Label htmlFor="atn-decision">Decisión</Label>
-                <select
-                    id="atn-decision"
-                    className="h-9 w-full rounded-md border bg-transparent px-3 text-sm"
-                    value={form.data.decision as string}
-                    onChange={(e) => form.setData('decision', e.target.value)}
-                >
-                    <option value="temporal">Respuesta temporal (avance)</option>
-                    <option value="rapida">Atención rápida</option>
-                    <option value="resolver">Atendida / resuelta</option>
-                </select>
-            </Field>
-
-            <Field>
-                <Label htmlFor="atn-respuesta">Respuesta</Label>
-                <textarea
-                    id="atn-respuesta"
-                    className="min-h-16 w-full rounded-md border bg-transparent px-3 py-2 text-sm"
-                    value={form.data.respuesta as string}
-                    onChange={(e) => form.setData('respuesta', e.target.value)}
-                />
-            </Field>
-
-            {form.data.decision === 'temporal' && (
-                <FormInputField
-                    id="atn-avance"
-                    type="number"
-                    label="Avance (%)"
-                    value={(form.data.avance as string) ?? ''}
-                    onChange={(e) => form.setData('avance', e.target.value)}
-                />
-            )}
-
-            {completo && (
-                <>
-                    <div className="grid gap-3 sm:grid-cols-3">
-                        <FormInputField
-                            id="atn-apoyo"
-                            label="Apoyo"
-                            value={(form.data.apoyo as string) ?? ''}
-                            onChange={(e) =>
-                                form.setData('apoyo', e.target.value)
-                            }
-                        />
-                        <FormInputField
-                            id="atn-cantidad"
-                            label="Cantidad"
-                            value={(form.data.cantidad as string) ?? ''}
-                            onChange={(e) =>
-                                form.setData('cantidad', e.target.value)
-                            }
-                        />
-                        <SelectField
-                            label="Unidad"
-                            value={form.data.unidad_medida_id as number | null}
-                            options={opciones.unidadesMedida}
-                            onChange={(v) => form.setData('unidad_medida_id', v)}
-                        />
-                        <FormInputField
-                            id="atn-monto"
-                            label="Monto"
-                            value={(form.data.monto as string) ?? ''}
-                            onChange={(e) =>
-                                form.setData('monto', e.target.value)
-                            }
-                        />
-                        <FormInputField
-                            id="atn-numbene"
-                            label="Núm. beneficiarios"
-                            value={(form.data.num_bene as string) ?? ''}
-                            onChange={(e) =>
-                                form.setData('num_bene', e.target.value)
-                            }
-                        />
-                        <SelectField
-                            label="Concepto"
-                            value={form.data.concepto_id as number | null}
-                            options={opciones.conceptos}
-                            onChange={(v) => form.setData('concepto_id', v)}
-                        />
-                        <SelectField
-                            label="Origen del recurso"
-                            value={form.data.origen_recurso_id as number | null}
-                            options={opciones.origenesRecurso}
-                            onChange={(v) =>
-                                form.setData('origen_recurso_id', v)
-                            }
-                        />
-                        <FormInputField
-                            id="atn-folioresp"
-                            label="Folio de respuesta"
-                            value={(form.data.folio_resp as string) ?? ''}
-                            onChange={(e) =>
-                                form.setData('folio_resp', e.target.value)
-                            }
-                        />
-                        <FormInputField
-                            id="atn-fecharesp"
-                            type="date"
-                            label="Fecha de respuesta"
-                            value={(form.data.fecha_resp as string) ?? ''}
-                            onChange={(e) =>
-                                form.setData('fecha_resp', e.target.value)
-                            }
-                        />
+        <>
+            <tr className={`bg-muted/30 ${separador}`}>
+                <td className="px-3 py-3">
+                    <span className="font-semibold tracking-tight">
+                        {grupo.nombre}
+                    </span>
+                    <span className="ml-2 rounded-full bg-background px-2 py-0.5 text-[11px] text-muted-foreground tabular-nums">
+                        {grupo.solicitudes_total}
+                    </span>
+                </td>
+                <td className="px-3 py-3 text-muted-foreground">
+                    {grupo.localidad ?? '—'}
+                </td>
+                <td className="px-3 py-3 text-muted-foreground tabular-nums">
+                    {grupo.telefonos ?? '—'}
+                </td>
+                <td className="px-3 py-3" colSpan={3} />
+                {/* En la fila del solicitante van como botones con texto: son
+                    sólo dos y así no se confunden con el menú de la solicitud. */}
+                <td className="px-3 py-3">
+                    <div className="flex justify-end gap-2 whitespace-nowrap">
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={destino}>
+                                <UserPen className="mr-2 size-4" /> Editar
+                                solicitante
+                            </Link>
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onAccion({ tipo: 'alta', grupo })}
+                        >
+                            <Plus className="mr-2 size-4" /> Agregar solicitud
+                        </Button>
                     </div>
+                </td>
+            </tr>
 
-                    <div className="grid gap-3 sm:grid-cols-2">
-                        <MultiCheckField
-                            label="Rubros"
-                            options={opciones.rubros}
-                            value={form.data.rubros as number[]}
-                            onChange={(v) => form.setData('rubros', v)}
-                        />
-                        <MultiCheckField
-                            label="Sectores"
-                            options={opciones.sectores}
-                            value={form.data.sectores as number[]}
-                            onChange={(v) => form.setData('sectores', v)}
-                        />
-                    </div>
-
-                    <div>
-                        <p className="mb-1 text-xs font-medium text-muted-foreground">
-                            Ubicación de la respuesta
+            {solicitudes.map((s) => (
+                <tr key={s.id} className="transition-colors hover:bg-muted/30">
+                    <td className="border-b px-3 py-2.5" colSpan={3} />
+                    {/* El riel repite el color del sello: bajando la vista se
+                        lee el estado de todo el expediente sin leer texto. */}
+                    <td
+                        className={`border-b border-l-[3px] px-3 py-2.5 ${selloDe(s.status).riel}`}
+                    >
+                        <span className="font-mono text-xs font-medium tabular-nums">
+                            {s.folio_sistema ?? s.folio ?? `#${s.id}`}
+                        </span>
+                        <p className="mt-0.5 line-clamp-2 max-w-md text-muted-foreground">
+                            {s.solicitud ?? '—'}
                         </p>
-                        <UbicacionSelects
-                            estados={opciones.estados}
-                            value={{
-                                estado_id: form.data
-                                    .estado_resp_id as number | null,
-                                municipio_id: form.data
-                                    .municipio_resp_id as number | null,
-                                localidad_id: form.data
-                                    .localidad_resp_id as number | null,
-                            }}
-                            onChange={(patch) =>
-                                form.setData({
-                                    ...form.data,
-                                    ...('estado_id' in patch
-                                        ? { estado_resp_id: patch.estado_id }
-                                        : {}),
-                                    ...('municipio_id' in patch
-                                        ? {
-                                              municipio_resp_id:
-                                                  patch.municipio_id,
-                                          }
-                                        : {}),
-                                    ...('localidad_id' in patch
-                                        ? {
-                                              localidad_resp_id:
-                                                  patch.localidad_id,
-                                          }
-                                        : {}),
-                                })
-                            }
-                        />
-                    </div>
-                </>
-            )}
+                    </td>
+                    <td className="border-b px-3 py-2.5">
+                        {s.beneficiario_nombre ?? '—'}
+                    </td>
+                    <td className="border-b px-3 py-2.5">
+                        <span
+                            className={`inline-flex w-fit rounded-md border px-2 py-0.5 text-[11px] font-medium tracking-wide whitespace-nowrap ${selloDe(s.status).sello}`}
+                        >
+                            {s.status_label}
+                        </span>
+                        {s.status === 2 && !s.notificacion && (
+                            <span className="mt-1 block text-[11px] font-semibold tracking-wide text-red-600 uppercase dark:text-red-400">
+                                Pendiente notificación
+                            </span>
+                        )}
+                    </td>
+                    <td className="border-b px-3 py-2.5">
+                        <MenuAcciones>
+                            {puedeSeguimiento(s) && (
+                                <DropdownMenuItem
+                                    onClick={() =>
+                                        onAccion({
+                                            tipo: 'seguimiento',
+                                            solicitud: s,
+                                        })
+                                    }
+                                >
+                                    <ArrowRight className="mr-2 size-4" />{' '}
+                                    Seguimiento
+                                </DropdownMenuItem>
+                            )}
+                            {puedeAtender(s) && (
+                                <DropdownMenuItem
+                                    onClick={() =>
+                                        onAccion({
+                                            tipo: 'atender',
+                                            solicitud: s,
+                                        })
+                                    }
+                                >
+                                    <RefreshCw className="mr-2 size-4 text-emerald-600" />{' '}
+                                    Atender / Resolver
+                                </DropdownMenuItem>
+                            )}
+                            {puedeVerificar(s) && (
+                                <DropdownMenuItem
+                                    onClick={() =>
+                                        onAccion({
+                                            tipo: 'verificar',
+                                            solicitud: s,
+                                        })
+                                    }
+                                >
+                                    <ClipboardCheck className="mr-2 size-4" />{' '}
+                                    Verificar atención
+                                </DropdownMenuItem>
+                            )}
+                            {puedeEditar(s) && (
+                                <DropdownMenuItem
+                                    onClick={() =>
+                                        onAccion({
+                                            tipo: 'editar',
+                                            solicitud: s,
+                                        })
+                                    }
+                                >
+                                    <Pencil className="mr-2 size-4" /> Editar
+                                    solicitud
+                                </DropdownMenuItem>
+                            )}
+                            {puedeEliminar(s) && (
+                                <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                        variant="destructive"
+                                        onClick={() => onEliminar(s)}
+                                    >
+                                        <Trash2 className="mr-2 size-4" />{' '}
+                                        Eliminar solicitud
+                                    </DropdownMenuItem>
+                                </>
+                            )}
+                        </MenuAcciones>
+                    </td>
+                </tr>
+            ))}
 
-            <Button type="submit" disabled={form.processing}>
-                Registrar atención
-            </Button>
-        </form>
+            {faltan > 0 && (
+                <tr>
+                    <td className="px-3 py-2.5" colSpan={3} />
+                    <td className="border-b px-3 py-2.5" colSpan={4}>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={cargando}
+                            onClick={cargarMas}
+                            className="text-muted-foreground"
+                        >
+                            <ChevronDown className="mr-2 size-4" />
+                            {cargando
+                                ? 'Cargando…'
+                                : `Ver ${Math.min(faltan, 30)} solicitudes más de ${grupo.nombre} (faltan ${faltan})`}
+                        </Button>
+                    </td>
+                </tr>
+            )}
+        </>
     );
 }
 

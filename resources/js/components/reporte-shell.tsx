@@ -20,7 +20,9 @@ export type Paginacion = {
     prevUrl: string | null;
     nextUrl: string | null;
 };
-type Valor = string | number | boolean | null | number[];
+type Valor = string | number | boolean | null | number[] | string[];
+
+const nf = new Intl.NumberFormat('es-MX');
 
 /** Serializa filtros a query string (ignora vacíos, expande arreglos). */
 export function toQuery(params: Record<string, Valor>): Record<string, string> {
@@ -43,24 +45,56 @@ export function toQuery(params: Record<string, Valor>): Record<string, string> {
     return out;
 }
 
+/**
+ * Banda con rótulo, para separar los dos actos que el legacy tenía en paneles
+ * distintos: qué se busca y qué columnas se muestran.
+ */
+function Banda({ titulo, children }: { titulo: string; children: ReactNode }) {
+    return (
+        <div className="border-b border-sidebar-border/70 p-4 last:border-b-0">
+            <h2 className="mb-3 flex items-center gap-3 text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
+                <span className="whitespace-nowrap">{titulo}</span>
+                <span className="h-px flex-1 bg-border" />
+            </h2>
+            {children}
+        </div>
+    );
+}
+
 export function ReporteShell({
     title,
+    descripcion,
+    sustantivo,
     icon: Icon,
     pageUrl,
     exportBase,
     params,
     onLimpiar,
+    pestanas,
+    onPestana,
+    columnasField,
+    totalColumnas,
     columns,
     filas,
     paginacion,
     children,
 }: {
     title: string;
+    /** Qué contesta este reporte, en una línea. */
+    descripcion: string;
+    /** Cómo se llama lo que se cuenta: "eventos", "solicitudes"… */
+    sustantivo: string;
     icon: LucideIcon;
     pageUrl: string;
     exportBase: string;
     params: Record<string, Valor>;
     onLimpiar: () => void;
+    /** Pestañas de la vista, cuando el reporte tiene varias (Gestión). */
+    pestanas?: { clave: string; label: string; activa: boolean }[];
+    onPestana?: (clave: string) => void;
+    /** Las casillas de columnas; van en su propia banda. */
+    columnasField?: ReactNode;
+    totalColumnas?: number;
     columns: Columna[];
     filas: Record<string, string | number | null>[];
     paginacion: Paginacion;
@@ -76,34 +110,82 @@ export function ReporteShell({
         });
 
     const ir = (url: string | null) =>
-        url && router.get(url, {}, { preserveState: true, preserveScroll: true });
+        url &&
+        router.get(url, {}, { preserveState: true, preserveScroll: true });
 
     return (
         <div className="space-y-4 p-4">
-            <div className="flex items-center gap-3 rounded-xl border border-sidebar-border/70 bg-sidebar-accent/20 p-4">
-                <Icon className="size-5 text-primary" />
-                <div>
-                    <h1 className="text-xl font-semibold">{title}</h1>
-                    <p className="text-sm text-muted-foreground">
-                        Filtra y exporta a Excel.
-                    </p>
-                </div>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+                <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
+                    <Icon className="size-5 text-muted-foreground" />
+                    {title}
+                </h1>
+                <p className="text-sm text-muted-foreground">{descripcion}</p>
             </div>
 
-            <div className="space-y-4 rounded-xl border border-sidebar-border/70 bg-card p-4">
-                <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                    {children}
+            {pestanas && pestanas.length > 0 && (
+                <div className="flex flex-wrap gap-1 rounded-xl border border-sidebar-border/70 bg-card p-1">
+                    {pestanas.map((p) => (
+                        <button
+                            key={p.clave}
+                            type="button"
+                            aria-pressed={p.activa}
+                            className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                                p.activa
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'text-muted-foreground hover:bg-accent'
+                            }`}
+                            onClick={() => onPestana?.(p.clave)}
+                        >
+                            {p.label}
+                        </button>
+                    ))}
                 </div>
-                <div className="flex flex-wrap gap-2">
+            )}
+
+            <div className="rounded-xl border border-sidebar-border/70 bg-card">
+                <Banda titulo="Qué se busca">
+                    <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                        {children}
+                    </div>
+                </Banda>
+
+                {columnasField && (
+                    <Banda titulo="Qué columnas se muestran">
+                        {columnasField}
+                    </Banda>
+                )}
+
+                {/* Lo que se va a producir, dicho en palabras, justo donde se
+                    decide descargarlo. */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-3 border-t border-sidebar-border/70 p-4">
                     <Button onClick={aplicar}>
                         <Filter className="mr-2 size-4" /> Aplicar filtros
                     </Button>
                     <Button variant="outline" onClick={onLimpiar}>
                         <RotateCcw className="mr-2 size-4" /> Limpiar
                     </Button>
+
+                    <p className="order-last w-full text-sm text-muted-foreground sm:order-none sm:ml-auto sm:w-auto sm:text-right">
+                        Se descargan{' '}
+                        <span className="font-medium text-foreground tabular-nums">
+                            {nf.format(paginacion.total)} {sustantivo}
+                        </span>
+                        {totalColumnas ? (
+                            <>
+                                {' '}
+                                con{' '}
+                                <span className="font-medium text-foreground tabular-nums">
+                                    {columns.length} de {totalColumnas} columnas
+                                </span>
+                            </>
+                        ) : null}
+                        .
+                    </p>
+
                     <Button
                         asChild
-                        className="ml-auto gap-2 border-0 bg-gradient-to-b from-emerald-500 to-emerald-600 text-white shadow-sm transition hover:from-emerald-500 hover:to-emerald-700 hover:shadow-md dark:from-emerald-500 dark:to-emerald-600"
+                        className="gap-2 border-0 bg-emerald-600 text-white hover:bg-emerald-700"
                     >
                         <a href={exportUrl} download>
                             <span className="grid size-5 place-items-center rounded bg-white/20">
@@ -120,7 +202,12 @@ export function ReporteShell({
                     <TableHeader>
                         <TableRow>
                             {columns.map((c) => (
-                                <TableHead key={c.key}>{c.header}</TableHead>
+                                <TableHead
+                                    key={c.key}
+                                    className="whitespace-nowrap"
+                                >
+                                    {c.header}
+                                </TableHead>
                             ))}
                         </TableRow>
                     </TableHeader>
@@ -128,17 +215,24 @@ export function ReporteShell({
                         {filas.length === 0 ? (
                             <TableRow>
                                 <TableCell
-                                    colSpan={columns.length}
-                                    className="h-24 text-center text-muted-foreground"
+                                    colSpan={Math.max(columns.length, 1)}
+                                    className="h-28 text-center text-sm text-muted-foreground"
                                 >
-                                    Sin resultados.
+                                    No hay {sustantivo} que coincidan con estos
+                                    filtros. Quita alguno o amplía el rango de
+                                    fechas.
                                 </TableCell>
                             </TableRow>
                         ) : (
                             filas.map((fila, i) => (
                                 <TableRow key={i}>
                                     {columns.map((c) => (
-                                        <TableCell key={c.key}>
+                                        <TableCell
+                                            key={c.key}
+                                            // Un texto largo no debe estirar la
+                                            // tabla hasta sacarla de pantalla.
+                                            className="max-w-[28rem] align-top whitespace-normal"
+                                        >
                                             {fila[c.key] ?? '—'}
                                         </TableCell>
                                     ))}
@@ -149,10 +243,9 @@ export function ReporteShell({
                 </Table>
             </div>
 
-            <div className="flex items-center justify-end gap-2">
-                <span className="text-xs text-muted-foreground">
-                    {paginacion.total} resultados · página {paginacion.currentPage}{' '}
-                    de {paginacion.lastPage}
+            <div className="flex items-center justify-end gap-3">
+                <span className="text-xs text-muted-foreground tabular-nums">
+                    Página {paginacion.currentPage} de {paginacion.lastPage}
                 </span>
                 <Button
                     variant="outline"

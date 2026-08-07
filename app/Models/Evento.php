@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
     'titulo', 'descripcion', 'recomendaciones', 'inicio', 'fin', 'todo_el_dia', 'tipo_evento_id',
-    'lugar', 'contacto', 'telefono', 'personas', 'representante',
+    'lugar', 'localidad_id', 'contacto', 'telefono', 'personas', 'representante',
     'asiste', 'confirmado', 'discurso', 'privado', 'created_by',
 ])]
 class Evento extends Model
@@ -24,16 +24,27 @@ class Evento extends Model
             'inicio' => 'datetime',
             'fin' => 'datetime',
             'todo_el_dia' => 'boolean',
-            'asiste' => 'boolean',
+            'asiste' => 'integer',
             'confirmado' => 'boolean',
             'discurso' => 'boolean',
             'privado' => 'boolean',
         ];
     }
 
+    /** Quién asiste al evento (legacy `asiste`). */
+    public const ASISTE = [
+        1 => 'Presidente (a)',
+        2 => 'Representante',
+    ];
+
     public function tipoEvento(): BelongsTo
     {
         return $this->belongsTo(CatTipoEvento::class, 'tipo_evento_id');
+    }
+
+    public function localidad(): BelongsTo
+    {
+        return $this->belongsTo(CatLocalidad::class, 'localidad_id');
     }
 
     public function creadoPor(): BelongsTo

@@ -7,10 +7,9 @@ test('guests are redirected to the login page', function () {
     $response->assertRedirect(route('login'));
 });
 
-test('authenticated users can visit the dashboard', function () {
-    $user = User::factory()->create();
-    $this->actingAs($user);
+// No hay un dashboard propio: la ruta manda al primer tablero disponible.
+test('authenticated users land on the first tablero', function () {
+    $this->actingAs(User::factory()->create());
 
-    $response = $this->get(route('dashboard'));
-    $response->assertOk();
+    $this->get(route('dashboard'))->assertRedirect(route('tableros.ejecutivo'));
 });

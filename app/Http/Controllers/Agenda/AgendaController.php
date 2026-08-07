@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Agenda;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Agenda\UpsertEventoRequest;
+use App\Models\CatEstado;
 use App\Models\CatTipoEvento;
 use App\Models\Evento;
 use App\Models\Nota;
+use App\Models\Notita;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,6 +21,10 @@ class AgendaController extends Controller
     {
         return Inertia::render('agenda/index', [
             'tipos' => CatTipoEvento::query()->orderBy('nombre')->get(['id', 'nombre', 'color']),
+            'estados' => CatEstado::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'opcionesAsiste' => collect(Evento::ASISTE)
+                ->map(fn (string $n, int $id) => ['id' => $id, 'nombre' => $n])
+                ->values(),
         ]);
     }
 
@@ -31,7 +37,7 @@ class AgendaController extends Controller
         $fin = $request->string('end')->toString();
 
         $eventos = Evento::query()
-            ->with('tipoEvento:id,nombre,color')
+            ->with(['tipoEvento:id,nombre,color', 'localidad:id,nombre,municipio_id,estado_id'])
             ->when($inicio !== '' && $fin !== '', fn ($q) => $q
                 ->where('inicio', '<', $fin)
                 ->where(fn ($sub) => $sub->where('fin', '>=', $inicio)->orWhereNull('fin')->where('inicio', '>=', $inicio)))
@@ -40,8 +46,11 @@ class AgendaController extends Controller
             ->map(fn (Evento $e): array => [
                 'id' => (string) $e->id,
                 'title' => $e->titulo ?: '(Sin título)',
-                'start' => $e->inicio?->toIso8601String(),
-                'end' => $e->fin?->toIso8601String(),
+                // Sin zona horaria a propósito: las horas del evento son de
+                // reloj de pared (como se capturaron), no instantes UTC. Si se
+                // mandaran con offset el navegador las correría varias horas.
+                'start' => $e->inicio?->format('Y-m-d\TH:i:s'),
+                'end' => $e->fin?->format('Y-m-d\TH:i:s'),
                 'allDay' => $e->todo_el_dia,
                 'backgroundColor' => $e->tipoEvento?->color,
                 'borderColor' => $e->tipoEvento?->color,
@@ -50,6 +59,12 @@ class AgendaController extends Controller
                     'tipo_nombre' => $e->tipoEvento?->nombre,
                     'descripcion' => $e->descripcion,
                     'lugar' => $e->lugar,
+                    'localidad_id' => $e->localidad_id,
+                    // El selector de localidad es en cascada; se mandan el
+                    // estado y el municipio para poder precargarlo al editar.
+                    'estado_id' => $e->localidad?->estado_id,
+                    'municipio_id' => $e->localidad?->municipio_id,
+                    'localidad_nombre' => $e->localidad?->nombre,
                     'contacto' => $e->contacto,
                     'telefono' => $e->telefono,
                     'representante' => $e->representante,
@@ -123,7 +138,7 @@ class AgendaController extends Controller
             'pendientes' => $nota->pendientes()
                 ->latest('id')
                 ->get(['id', 'texto', 'realizado'])
-                ->map(fn (\App\Models\Notita $n): array => [
+                ->map(fn (Notita $n): array => [
                     'id' => $n->id,
                     'texto' => $n->texto,
                     'realizado' => $n->realizado,

@@ -24,6 +24,18 @@ class NotitaController extends Controller
         return back()->with('success', 'Pendiente agregado.');
     }
 
+    /** Editar el texto del pendiente, como el `notas_cambiar.php` del legacy. */
+    public function update(Request $request, Notita $notita): RedirectResponse
+    {
+        $data = $request->validate([
+            'texto' => ['required', 'string', 'max:255'],
+        ]);
+
+        $notita->update(['texto' => $data['texto']]);
+
+        return back()->with('success', 'Pendiente actualizado.');
+    }
+
     public function toggle(Notita $notita): RedirectResponse
     {
         $notita->update(['realizado' => ! $notita->realizado]);

@@ -2,22 +2,25 @@ import { Form, Head } from '@inertiajs/react';
 import InputError from '@/components/input-error';
 import PasskeyVerify from '@/components/passkey-verify';
 import PasswordInput from '@/components/password-input';
-import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-// import { register } from '@/routes';
 import { store } from '@/routes/login';
-// import { request } from '@/routes/password';
 
+/**
+ * Las cuentas las da de alta un administrador, así que el alta pública y el
+ * "olvidé mi contraseña" del starter kit están apagados: abajo queda su marcado
+ * comentado. Para reactivarlos hay que volver a importar `TextLink`,
+ * `register` de `@/routes` y `request` de `@/routes/password`, y leer
+ * `canResetPassword` de las props (el controlador la sigue mandando).
+ */
 type Props = {
     status?: string;
-    canResetPassword: boolean;
 };
 
-export default function Login({ status, canResetPassword }: Props) {
+export default function Login({ status }: Props) {
     return (
         <>
             <Head title="Iniciar sesión" />
@@ -33,7 +36,9 @@ export default function Login({ status, canResetPassword }: Props) {
                     <>
                         <div className="grid gap-6">
                             <div className="grid gap-2">
-                                <Label htmlFor="email">Correo electrónico</Label>
+                                <Label htmlFor="email">
+                                    Correo electrónico
+                                </Label>
                                 <Input
                                     id="email"
                                     type="email"

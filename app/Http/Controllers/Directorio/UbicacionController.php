@@ -29,6 +29,11 @@ class UbicacionController extends Controller
         return response()->json($municipios);
     }
 
+    /**
+     * Las localidades viajan con su sección electoral: en el legacy la sección
+     * no se captura, se copia de la localidad al elegirla (`sel_localidad.php`),
+     * y traerla aquí evita una segunda vuelta al servidor por cada cambio.
+     */
     public function localidades(Request $request): JsonResponse
     {
         $municipioId = $request->integer('municipio_id');
@@ -37,7 +42,7 @@ class UbicacionController extends Controller
             ? CatLocalidad::query()
                 ->where('municipio_id', $municipioId)
                 ->orderBy('nombre')
-                ->get(['id', 'nombre'])
+                ->get(['id', 'nombre', 'seccion'])
             : [];
 
         return response()->json($localidades);

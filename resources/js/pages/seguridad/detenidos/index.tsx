@@ -1,5 +1,15 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { Fingerprint, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
+import {
+    FileText,
+    Fingerprint,
+    IdCard,
+    LayoutGrid,
+    MoreHorizontal,
+    Pencil,
+    Plus,
+    Rows3,
+    Trash2,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AsyncSearchPicker } from '@/components/async-search-picker';
@@ -22,6 +32,21 @@ import { Field } from '@/components/ui/field';
 import { Label } from '@/components/ui/label';
 import { resolveFormErrorMessage } from '@/lib/form-error-message';
 import { destroy, index, store } from '@/routes/seguridad/detenidos';
+import { FichaDetenidoDialog } from './ficha-dialog';
+import { SEXOS } from './sexo';
+import { TarjetaDetenido } from './tarjeta';
+
+/** Cómo se listan los detenidos; la preferencia se recuerda en el navegador. */
+type Vista = 'tarjetas' | 'tabla';
+const VISTA_GUARDADA = 'detenidos:vista';
+
+function vistaInicial(): Vista {
+    if (typeof window === 'undefined') {
+        return 'tarjetas';
+    }
+
+    return localStorage.getItem(VISTA_GUARDADA) === 'tabla' ? 'tabla' : 'tarjetas';
+}
 
 type Opcion = { id: number; nombre: string };
 type Detenido = {
@@ -41,11 +66,6 @@ type Opciones = {
     estados: Opcion[];
 };
 type Form = Record<string, string | number | null>;
-
-const SEXOS: Opcion[] = [
-    { id: 1, nombre: 'Masculino' },
-    { id: 2, nombre: 'Femenino' },
-];
 
 const VACIO: Form = {
     id: null,
@@ -86,6 +106,8 @@ export default function DetenidosIndex({
     const [formMode, setFormMode] = useState<'create' | 'edit' | null>(null);
     const [editando, setEditando] = useState<Detenido | null>(null);
     const [eliminar, setEliminar] = useState<Detenido | null>(null);
+    const [ficha, setFicha] = useState<Detenido | null>(null);
+    const [vista, setVista] = useState<Vista>(vistaInicial);
     const form = useForm<Form>(VACIO);
     const { flash } = usePage().props;
 
@@ -98,6 +120,11 @@ export default function DetenidosIndex({
             toast.error(flash.error);
         }
     }, [flash?.error, flash?.success]);
+
+    const cambiarVista = (nueva: Vista) => {
+        setVista(nueva);
+        localStorage.setItem(VISTA_GUARDADA, nueva);
+    };
 
     const abrirCrear = () => {
         setEditando(null);
@@ -195,8 +222,20 @@ export default function DetenidosIndex({
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setFicha(row)}>
+                            <IdCard className="mr-2 size-4" /> Ver ficha
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => abrirEditar(row)}>
                             <Pencil className="mr-2 size-4" /> Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                            <a
+                                href={`/seguridad/detenidos/${row.id}/pdf`}
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                <FileText className="mr-2 size-4" /> Imprimir PDF
+                            </a>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -234,12 +273,70 @@ export default function DetenidosIndex({
                     </div>
                 </div>
 
-                <DataTable
-                    columns={columns}
-                    data={detenidos}
-                    server={paginacion}
-                    searchPlaceholder="Buscar por nombre, alias o motivo..."
-                />
+                {/* Mismo selector de vista que el Directorio; la preferencia
+                    se guarda en el navegador. */}
+                <div className="flex justify-end">
+                    <div className="flex gap-1 rounded-lg border p-0.5">
+                        {(
+                            [
+                                ['tarjetas', 'Tarjetas', LayoutGrid],
+                                ['tabla', 'Tabla', Rows3],
+                            ] as const
+                        ).map(([clave, etiqueta, Icono]) => (
+                            <Button
+                                key={clave}
+                                size="sm"
+                                variant={vista === clave ? 'secondary' : 'ghost'}
+                                onClick={() => cambiarVista(clave)}
+                                aria-pressed={vista === clave}
+                            >
+                                <Icono className="mr-2 size-4" />
+                                {etiqueta}
+                            </Button>
+                        ))}
+                    </div>
+                </div>
+
+                {vista === 'tabla' ? (
+                    <DataTable
+                        columns={columns}
+                        data={detenidos}
+                        server={paginacion}
+                        searchPlaceholder="Buscar por nombre, alias o motivo..."
+                    />
+                ) : (
+                    <>
+                        <DataTable
+                            columns={[]}
+                            data={[]}
+                            server={paginacion}
+                            searchPlaceholder="Buscar por nombre, alias o motivo..."
+                            soloBuscador
+                        />
+
+                        {detenidos.length === 0 ? (
+                            <div className="rounded-xl border border-dashed border-sidebar-border/70 px-6 py-14 text-center">
+                                <Fingerprint className="mx-auto size-7 text-muted-foreground/60" />
+                                <p className="mt-3 font-medium">Sin detenidos</p>
+                                <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+                                    Ajusta la búsqueda o registra uno nuevo.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                {detenidos.map((d) => (
+                                    <TarjetaDetenido
+                                        key={d.id}
+                                        detenido={d}
+                                        onFicha={() => setFicha(d)}
+                                        onEditar={() => abrirEditar(d)}
+                                        onEliminar={() => setEliminar(d)}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </>
+                )}
             </div>
 
             <CrudFormDialog
@@ -361,6 +458,13 @@ export default function DetenidosIndex({
                     </Field>
                 </div>
             </CrudFormDialog>
+
+            {ficha && (
+                <FichaDetenidoDialog
+                    detenido={ficha}
+                    onClose={() => setFicha(null)}
+                />
+            )}
 
             <ConfirmDeleteDialog
                 open={eliminar !== null}

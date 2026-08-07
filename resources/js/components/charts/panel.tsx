@@ -1,12 +1,14 @@
 import type { ReactNode } from 'react';
 
-/** Contenedor de gráfica con título. */
+/** Contenedor de gráfica con título y, si hace falta, una nota que lo explica. */
 export function Panel({
     title,
+    nota,
     children,
     className = '',
 }: {
     title: string;
+    nota?: string;
     children: ReactNode;
     className?: string;
 }) {
@@ -14,7 +16,12 @@ export function Panel({
         <div
             className={`rounded-xl border border-sidebar-border/70 bg-card p-4 ${className}`}
         >
-            <h2 className="mb-2 text-sm font-semibold">{title}</h2>
+            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4">
+                <h3 className="text-sm font-medium">{title}</h3>
+                {nota && (
+                    <p className="text-xs text-muted-foreground">{nota}</p>
+                )}
+            </div>
             {children}
         </div>
     );
@@ -56,7 +63,9 @@ export function StatCard({
         <div
             className={`rounded-xl border border-l-4 border-sidebar-border/70 bg-card p-4 ${TONOS[color] ?? TONOS.gray}`}
         >
-            <p className="text-2xl font-semibold tabular-nums">{texto}</p>
+            <p className="text-2xl font-semibold tracking-tight tabular-nums">
+                {texto}
+            </p>
             <p className="text-xs text-muted-foreground">{label}</p>
         </div>
     );

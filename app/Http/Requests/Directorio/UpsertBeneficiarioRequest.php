@@ -51,6 +51,13 @@ class UpsertBeneficiarioRequest extends FormRequest
             'vinculo_municipal' => $texto,
             'vinculo_estatal' => $texto,
             'vinculo_federal' => $texto,
+            // La sección la pone la localidad; se acepta como entero suelto
+            // porque el legacy la guarda sin validar contra el padrón.
+            'seccion' => ['nullable', 'integer', 'min:1'],
+            'filiacion_id' => ['nullable', 'integer', Rule::exists('cat_filiaciones', 'id')],
+            'antagonico_id' => ['nullable', 'integer', Rule::exists('cat_antagonicos', 'id')],
+            'lider_id' => ['nullable', 'integer', Rule::exists('cat_lideres', 'id')],
+            'influencia_id' => ['nullable', 'integer', Rule::exists('cat_influencias', 'id')],
             'asist_nombre' => $texto,
             'asist_movil' => $texto,
             'asist_correo' => $texto,

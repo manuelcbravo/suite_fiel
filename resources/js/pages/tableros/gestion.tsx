@@ -3,6 +3,7 @@ import { columnChart, groupedBar, pieDonut } from '@/components/charts/builders'
 import { GaugeSemi } from '@/components/charts/gauge-semi';
 import { HChart } from '@/components/charts/hchart';
 import { Panel, StatCard } from '@/components/charts/panel';
+import { Encabezado, Seccion } from '@/components/pagina';
 import {
     Table,
     TableBody,
@@ -77,43 +78,102 @@ export default function Gestion({
         <>
             <Head title="Tablero de gestión" />
             <div className="space-y-4 p-4">
+                <Encabezado
+                    titulo="Tablero de gestión"
+                    resumen={
+                        <>
+                            {nf.format(kpis.total)} solicitudes ·{' '}
+                            {cumplimiento.toFixed(0)}% de cumplimiento
+                        </>
+                    }
+                />
+
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-                    <StatCard label="Capturadas" value={kpis.capturadas} color="orange" />
-                    <StatCard label="Turnadas" value={kpis.turnadas} color="yellow" />
-                    <StatCard label="Para resolver" value={kpis.para_resolver} color="blue" />
-                    <StatCard label="Resueltas" value={kpis.resueltas} color="green" />
-                    <StatCard label="Total de solicitudes" value={kpis.total} color="pink" />
-                    <StatCard label="Compromisos próximos" value={kpis.compromisos} color="purple" />
+                    <StatCard
+                        label="Capturadas"
+                        value={kpis.capturadas}
+                        color="orange"
+                    />
+                    <StatCard
+                        label="Turnadas"
+                        value={kpis.turnadas}
+                        color="yellow"
+                    />
+                    <StatCard
+                        label="Para resolver"
+                        value={kpis.para_resolver}
+                        color="blue"
+                    />
+                    <StatCard
+                        label="Resueltas"
+                        value={kpis.resueltas}
+                        color="green"
+                    />
+                    <StatCard
+                        label="Total de solicitudes"
+                        value={kpis.total}
+                        color="pink"
+                    />
+                    <StatCard
+                        label="Compromisos próximos"
+                        value={kpis.compromisos}
+                        color="purple"
+                    />
                 </div>
 
-                <div className="grid gap-4 lg:grid-cols-3">
-                    <Panel title="Cumplimiento">
-                        <GaugeSemi value={cumplimiento} />
+                <Seccion>Carga por dependencia</Seccion>
+                {/* Dos columnas y no tres: a un tercio de ancho las donas
+                    quedaban del tamaño de una moneda y las etiquetas encimadas. */}
+                <div className="grid gap-4 lg:grid-cols-2">
+                    <Panel
+                        title="Cumplimiento"
+                        nota="Resueltas sobre el total"
+                        className="flex flex-col"
+                    >
+                        <div className="flex flex-1 flex-col items-center justify-center gap-3">
+                            <GaugeSemi value={cumplimiento} />
+                            <p className="text-center text-sm text-muted-foreground">
+                                {nf.format(kpis.resueltas)} de{' '}
+                                {nf.format(kpis.total)} solicitudes resueltas
+                            </p>
+                        </div>
                     </Panel>
-                    <Panel title="Solicitudes por resolver">
+                    <Panel
+                        title="Solicitudes por resolver"
+                        nota="Pendientes por área"
+                    >
                         <HChart options={pieDonut(porResolver)} />
                     </Panel>
-                    <Panel title="Solicitudes atendidas">
-                        <HChart options={pieDonut(atendidasPorDependencia)} />
-                    </Panel>
                 </div>
 
-                <Panel title="Solicitudes atendidas por concepto">
+                <Panel title="Solicitudes atendidas" nota="Resueltas por área">
+                    <HChart options={pieDonut(atendidasPorDependencia)} />
+                </Panel>
+
+                <Panel
+                    title="Solicitudes atendidas por concepto"
+                    nota="Qué se pide con más frecuencia"
+                >
                     <HChart options={columnChart(porConcepto)} />
                 </Panel>
 
-                <h2 className="pt-2 text-sm font-semibold text-muted-foreground">
-                    Asociaciones gestoras
-                </h2>
-                <BarraGestor g={asociaciones} etiquetaGestores="Asociaciones gestoras" />
-
-                <h2 className="pt-2 text-sm font-semibold text-muted-foreground">
-                    Ciudadanos gestores
-                </h2>
-                <BarraGestor g={ciudadanos} etiquetaGestores="Ciudadanos gestores" />
+                <Seccion>Quién gestiona</Seccion>
+                <p className="text-sm font-medium">Asociaciones gestoras</p>
+                <BarraGestor
+                    g={asociaciones}
+                    etiquetaGestores="Asociaciones gestoras"
+                />
+                <p className="pt-2 text-sm font-medium">Ciudadanos gestores</p>
+                <BarraGestor
+                    g={ciudadanos}
+                    etiquetaGestores="Ciudadanos gestores"
+                />
 
                 <div className="grid gap-4 lg:grid-cols-2">
-                    <Panel title="Solicitudes atendidas por tipo de beneficiario">
+                    <Panel
+                        title="Solicitudes atendidas por tipo de beneficiario"
+                        nota="Personal contra comunitaria"
+                    >
                         <HChart
                             options={groupedBar(
                                 ['Asociación', 'Ciudadano'],
@@ -128,41 +188,69 @@ export default function Gestion({
                             )}
                         />
                     </Panel>
-                    <Panel title="Top 10 localidad por cantidad">
+                    <Panel
+                        title="Top 10 localidad por cantidad"
+                        nota="Solicitudes recibidas"
+                    >
                         <HChart options={columnChart(topLocalidadCantidad)} />
                     </Panel>
                 </div>
 
-                <Panel title="Desglose por localidad">
+                <Seccion>Desglose por localidad</Seccion>
+                <div className="overflow-hidden rounded-xl border border-sidebar-border/70 bg-card">
                     <div className="overflow-x-auto">
                         <Table>
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Localidad</TableHead>
-                                    <TableHead className="text-right">Total</TableHead>
-                                    <TableHead className="text-right">Resueltas</TableHead>
-                                    <TableHead className="text-right">Para resolver</TableHead>
-                                    <TableHead className="text-right">Turnadas</TableHead>
-                                    <TableHead className="text-right">Capturadas</TableHead>
-                                    <TableHead className="text-right">Inversión</TableHead>
+                                    <TableHead className="text-right">
+                                        Total
+                                    </TableHead>
+                                    <TableHead className="text-right">
+                                        Resueltas
+                                    </TableHead>
+                                    <TableHead className="text-right">
+                                        Para resolver
+                                    </TableHead>
+                                    <TableHead className="text-right">
+                                        Turnadas
+                                    </TableHead>
+                                    <TableHead className="text-right">
+                                        Capturadas
+                                    </TableHead>
+                                    <TableHead className="text-right">
+                                        Inversión
+                                    </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {tablaLocalidades.map((f) => (
                                     <TableRow key={f.localidad}>
                                         <TableCell>{f.localidad}</TableCell>
-                                        <TableCell className="text-right tabular-nums">{nf.format(f.total)}</TableCell>
-                                        <TableCell className="text-right tabular-nums">{nf.format(f.resueltas)}</TableCell>
-                                        <TableCell className="text-right tabular-nums">{nf.format(f.para_resolver)}</TableCell>
-                                        <TableCell className="text-right tabular-nums">{nf.format(f.turnadas)}</TableCell>
-                                        <TableCell className="text-right tabular-nums">{nf.format(f.capturadas)}</TableCell>
-                                        <TableCell className="text-right tabular-nums">{mf.format(f.inversion)}</TableCell>
+                                        <TableCell className="text-right font-medium tabular-nums">
+                                            {nf.format(f.total)}
+                                        </TableCell>
+                                        <TableCell className="text-right tabular-nums">
+                                            {nf.format(f.resueltas)}
+                                        </TableCell>
+                                        <TableCell className="text-right tabular-nums">
+                                            {nf.format(f.para_resolver)}
+                                        </TableCell>
+                                        <TableCell className="text-right tabular-nums">
+                                            {nf.format(f.turnadas)}
+                                        </TableCell>
+                                        <TableCell className="text-right tabular-nums">
+                                            {nf.format(f.capturadas)}
+                                        </TableCell>
+                                        <TableCell className="text-right tabular-nums">
+                                            {mf.format(f.inversion)}
+                                        </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
                         </Table>
                     </div>
-                </Panel>
+                </div>
             </div>
         </>
     );
@@ -177,12 +265,36 @@ function BarraGestor({
 }) {
     return (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-            <StatCard label={etiquetaGestores} value={g.gestores} color="purple" />
-            <StatCard label="Total de solicitudes" value={g.total} color="pink" />
-            <StatCard label="Solicitudes resueltas" value={g.resueltas} color="green" />
-            <StatCard label="Solicitudes a resolver" value={g.para_resolver} color="blue" />
-            <StatCard label="Solicitudes turnadas" value={g.turnadas} color="yellow" />
-            <StatCard label="Solicitudes capturadas" value={g.capturadas} color="orange" />
+            <StatCard
+                label={etiquetaGestores}
+                value={g.gestores}
+                color="purple"
+            />
+            <StatCard
+                label="Total de solicitudes"
+                value={g.total}
+                color="pink"
+            />
+            <StatCard
+                label="Solicitudes resueltas"
+                value={g.resueltas}
+                color="green"
+            />
+            <StatCard
+                label="Solicitudes a resolver"
+                value={g.para_resolver}
+                color="blue"
+            />
+            <StatCard
+                label="Solicitudes turnadas"
+                value={g.turnadas}
+                color="yellow"
+            />
+            <StatCard
+                label="Solicitudes capturadas"
+                value={g.capturadas}
+                color="orange"
+            />
         </div>
     );
 }

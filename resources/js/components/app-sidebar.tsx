@@ -7,6 +7,7 @@ import {
     Contact,
     FileSpreadsheet,
     GraduationCap,
+    HardHat,
     LayoutGrid,
     MailPlus,
     Settings,
@@ -43,16 +44,17 @@ import { index as capacitacionIndex } from '@/routes/capacitacion';
 import { index as configCatalogos } from '@/routes/config/catalogos';
 import { index as configRoles } from '@/routes/config/roles';
 import { index as configUsers } from '@/routes/config/users';
-import { index as directorioBeneficiarios } from '@/routes/directorio/beneficiarios';
-import { index as directorioOrganizaciones } from '@/routes/directorio/organizaciones';
-import { index as directorioProveedores } from '@/routes/directorio/proveedores';
+import { index as directorio } from '@/routes/directorio';
 import { index as gestionSolicitudes } from '@/routes/gestion/solicitudes';
 import { index as invitacionesIndex } from '@/routes/invitaciones';
 import { index as notasIndex } from '@/routes/notas';
+import { index as obraIndex } from '@/routes/obra';
 import {
     agenda as reporteAgenda,
     directorio as reporteDirectorio,
     gestion as reporteGestion,
+    obra as reporteObra,
+    seguridad as reporteSeguridad,
 } from '@/routes/reportes';
 import { index as seguridadDenuncias } from '@/routes/seguridad/denuncias';
 import { index as seguridadDetenidos } from '@/routes/seguridad/detenidos';
@@ -60,6 +62,8 @@ import {
     ejecutivo as tableroEjecutivo,
     financiero as tableroFinanciero,
     gestion as tableroGestion,
+    obra as tableroObra,
+    seguridad as tableroSeguridad,
 } from '@/routes/tableros';
 
 type Href = NonNullable<InertiaLinkProps['href']>;
@@ -85,15 +89,13 @@ export function AppSidebar() {
         ...(puede('tableros.financiero')
             ? [{ title: 'Financiero', href: tableroFinanciero() }]
             : []),
+        ...(puede('tableros.seguridad')
+            ? [{ title: 'Seguridad', href: tableroSeguridad() }]
+            : []),
+        ...(puede('tableros.obra')
+            ? [{ title: 'Obra pública', href: tableroObra() }]
+            : []),
     ];
-
-    const directorioItems: Enlace[] = puede('directorio.gestionar')
-        ? [
-              { title: 'Beneficiarios', href: directorioBeneficiarios() },
-              { title: 'Organizaciones', href: directorioOrganizaciones() },
-              { title: 'Proveedores', href: directorioProveedores() },
-          ]
-        : [];
 
     const gestionItems: Enlace[] = puede('gestion.gestionar')
         ? [{ title: 'Solicitudes', href: gestionSolicitudes() }]
@@ -115,6 +117,12 @@ export function AppSidebar() {
             : []),
         ...(puede('reportes.gestion')
             ? [{ title: 'Gestión', href: reporteGestion() }]
+            : []),
+        ...(puede('obra.gestionar')
+            ? [{ title: 'Obra pública', href: reporteObra() }]
+            : []),
+        ...(puede('seguridad.gestionar')
+            ? [{ title: 'Seguridad', href: reporteSeguridad() }]
             : []),
     ];
 
@@ -180,18 +188,23 @@ export function AppSidebar() {
                     </SidebarGroup>
                 )}
 
-                {directorioItems.length > 0 && (
+                {/* El Directorio es una sola pantalla; las tres categorías son
+                    pestañas dentro de ella, no entradas del menú. */}
+                {puede('directorio.gestionar') && (
                     <SidebarGroup className="px-2 py-0">
                         <SidebarMenu>
-                            <GrupoNav
-                                grupo={{
-                                    title: 'Directorio',
-                                    icon: Contact,
-                                    visible: true,
-                                    items: directorioItems,
-                                }}
-                                isCurrentUrl={isCurrentUrl}
-                            />
+                            <SidebarMenuItem>
+                                <SidebarMenuButton
+                                    asChild
+                                    isActive={isCurrentUrl(directorio())}
+                                    tooltip={{ children: 'Directorio' }}
+                                >
+                                    <Link href={directorio()} prefetch>
+                                        <Contact />
+                                        <span>Directorio</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
                         </SidebarMenu>
                     </SidebarGroup>
                 )}
@@ -224,6 +237,25 @@ export function AppSidebar() {
                                 }}
                                 isCurrentUrl={isCurrentUrl}
                             />
+                        </SidebarMenu>
+                    </SidebarGroup>
+                )}
+
+                {puede('obra.gestionar') && (
+                    <SidebarGroup className="px-2 py-0">
+                        <SidebarMenu>
+                            <SidebarMenuItem>
+                                <SidebarMenuButton
+                                    asChild
+                                    isActive={isCurrentUrl(obraIndex())}
+                                    tooltip={{ children: 'Obra pública' }}
+                                >
+                                    <Link href={obraIndex()} prefetch>
+                                        <HardHat />
+                                        <span>Obra pública</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
                         </SidebarMenu>
                     </SidebarGroup>
                 )}

@@ -21,26 +21,38 @@ export function MultiCheckField({
 }: MultiCheckFieldProps) {
     const alternar = (id: number) => {
         onChange(
-            value.includes(id)
-                ? value.filter((v) => v !== id)
-                : [...value, id],
+            value.includes(id) ? value.filter((v) => v !== id) : [...value, id],
         );
     };
 
     return (
         <Field>
-            <p className="text-sm font-medium">{label}</p>
-            <div className="grid max-h-40 gap-2 overflow-y-auto rounded-md border p-3 sm:grid-cols-2">
+            <p className="flex items-baseline justify-between gap-2 text-sm font-medium">
+                {label}
+                {value.length > 0 && (
+                    <span className="text-xs font-normal text-muted-foreground tabular-nums">
+                        {value.length} marcado{value.length === 1 ? '' : 's'}
+                    </span>
+                )}
+            </p>
+            {/* Las columnas las decide el ancho disponible, no un breakpoint:
+                el mismo componente aparece en un cuarto de pantalla (donde
+                "ALTERAR EL ORDEN, ARROJAR LÍQUIDOS U OBJETOS…" necesita todo
+                el renglón) y a lo ancho, donde caben tres. */}
+            <div className="grid max-h-44 grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-x-4 gap-y-1.5 overflow-x-hidden overflow-y-auto rounded-md border p-3">
                 {options.map((opcion) => (
                     <label
                         key={opcion.id}
-                        className="flex items-center gap-2 text-sm"
+                        className="flex cursor-pointer items-start gap-2 text-sm"
                     >
                         <Checkbox
+                            className="mt-0.5 shrink-0"
                             checked={value.includes(opcion.id)}
                             onCheckedChange={() => alternar(opcion.id)}
                         />
-                        {opcion.nombre}
+                        <span className="min-w-0 break-words">
+                            {opcion.nombre}
+                        </span>
                     </label>
                 ))}
             </div>

@@ -22,13 +22,16 @@ class UpsertEventoRequest extends FormRequest
             'fin' => ['nullable', 'date', 'after_or_equal:inicio'],
             'todo_el_dia' => ['boolean'],
             'lugar' => $texto,
+            'localidad_id' => ['nullable', 'integer', Rule::exists('cat_localidades', 'id')],
             'descripcion' => ['nullable', 'string'],
             'recomendaciones' => ['nullable', 'string'],
             'contacto' => $texto,
             'telefono' => $texto,
+            // Sólo se captura cuando asiste el representante (opción 2).
             'representante' => $texto,
             'personas' => $texto,
-            'asiste' => ['boolean'],
+            // 1 = Presidente (a) · 2 = Representante.
+            'asiste' => ['nullable', 'integer', 'in:1,2'],
             'confirmado' => ['boolean'],
             'discurso' => ['boolean'],
             'privado' => ['boolean'],

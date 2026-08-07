@@ -1,6 +1,8 @@
 import { Head } from '@inertiajs/react';
 import { CalendarDays } from 'lucide-react';
 import { useState } from 'react';
+import { ColumnasField, useColumnas } from '@/components/columnas-field';
+import type { ColumnaOpcion } from '@/components/columnas-field';
 import { ReporteShell } from '@/components/reporte-shell';
 import type { Columna, Paginacion } from '@/components/reporte-shell';
 import { SelectField } from '@/components/select-field';
@@ -16,21 +18,12 @@ type Filtros = {
     confirmado: boolean | null;
     discurso: boolean | null;
     privado: boolean | null;
+    columnas: string[];
 };
 
 const TRI: Opcion[] = [
     { id: 1, nombre: 'Sí' },
     { id: 0, nombre: 'No' },
-];
-
-const columnas: Columna[] = [
-    { key: 'titulo', header: 'Título' },
-    { key: 'tipo', header: 'Tipo' },
-    { key: 'fecha', header: 'Fecha' },
-    { key: 'hora', header: 'Hora' },
-    { key: 'lugar', header: 'Lugar' },
-    { key: 'contacto', header: 'Contacto' },
-    { key: 'confirmado', header: 'Confirmado' },
 ];
 
 const triNum = (v: boolean | null) => (v === null ? null : v ? 1 : 0);
@@ -42,7 +35,7 @@ export default function ReporteAgenda({
     paginacion,
 }: {
     filtros: Filtros;
-    opciones: { tipos: Opcion[] };
+    opciones: { tipos: Opcion[]; columnas: ColumnaOpcion[] };
     filas: Record<string, string | number | null>[];
     paginacion: Paginacion;
 }) {
@@ -58,6 +51,7 @@ export default function ReporteAgenda({
     const [privado, setPrivado] = useState<number | null>(
         triNum(filtros.privado),
     );
+    const [columnas, setColumnas] = useColumnas(filtros.columnas);
 
     const params = {
         desde,
@@ -66,13 +60,22 @@ export default function ReporteAgenda({
         confirmado,
         discurso,
         privado,
+        columnas,
     };
+
+    // Los encabezados salen de lo que el servidor ya aplicó, no de las fichas
+    // marcadas: si no, la tabla cambiaría antes de traer los datos.
+    const columnasTabla: Columna[] = opciones.columnas
+        .filter((c) => filtros.columnas.includes(c.clave))
+        .map((c) => ({ key: c.clave, header: c.label }));
 
     return (
         <>
             <Head title="Reporte de agenda" />
             <ReporteShell
                 title="Reporte de agenda"
+                descripcion="Qué se agendó y cuándo."
+                sustantivo="eventos"
                 icon={CalendarDays}
                 pageUrl="/reportes/agenda"
                 exportBase="/reportes/agenda.xlsx"
@@ -84,8 +87,17 @@ export default function ReporteAgenda({
                     setConfirmado(null);
                     setDiscurso(null);
                     setPrivado(null);
+                    setColumnas([]);
                 }}
-                columns={columnas}
+                columnasField={
+                    <ColumnasField
+                        opciones={opciones.columnas}
+                        value={columnas}
+                        onChange={setColumnas}
+                    />
+                }
+                totalColumnas={opciones.columnas.length}
+                columns={columnasTabla}
                 filas={filas}
                 paginacion={paginacion}
             >

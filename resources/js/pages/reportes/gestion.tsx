@@ -1,6 +1,8 @@
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { ClipboardList } from 'lucide-react';
 import { useState } from 'react';
+import { ColumnasField, useColumnas } from '@/components/columnas-field';
+import type { ColumnaOpcion } from '@/components/columnas-field';
 import { MultiCheckField } from '@/components/multi-check-field';
 import { ReporteShell } from '@/components/reporte-shell';
 import type { Columna, Paginacion } from '@/components/reporte-shell';
@@ -21,7 +23,10 @@ type Filtros = {
     localidad_resp_id: number | null;
     monto_min: number | null;
     monto_max: number | null;
+    vista: string;
+    columnas: string[];
 };
+type Vista = { clave: string; label: string };
 
 const TIPO_SOL: { id: number; nombre: string }[] = [
     { id: 0, nombre: 'Ciudadana' },
@@ -32,18 +37,10 @@ type Opciones = {
     conceptos: Opcion[];
     procedencias: Opcion[];
     estados: Opcion[];
+    vistas: Vista[];
+    columnas: ColumnaOpcion[];
+    eligeColumnas: boolean;
 };
-
-const columnas: Columna[] = [
-    { key: 'folio', header: 'Folio' },
-    { key: 'solicitante', header: 'Solicitante' },
-    { key: 'solicitud', header: 'Solicitud' },
-    { key: 'estatus', header: 'Estatus' },
-    { key: 'concepto', header: 'Concepto' },
-    { key: 'localidad', header: 'Localidad' },
-    { key: 'fecha_recepcion', header: 'Recepción' },
-    { key: 'monto', header: 'Monto' },
-];
 
 export default function ReporteGestion({
     filtros,
@@ -59,7 +56,9 @@ export default function ReporteGestion({
     const [desde, setDesde] = useState(filtros.desde ?? '');
     const [hasta, setHasta] = useState(filtros.hasta ?? '');
     const [estatus, setEstatus] = useState<number[]>(filtros.estatus ?? []);
-    const [concepto, setConcepto] = useState<number | null>(filtros.concepto_id);
+    const [concepto, setConcepto] = useState<number | null>(
+        filtros.concepto_id,
+    );
     const [procedencia, setProcedencia] = useState<number | null>(
         filtros.procedencia_id,
     );
@@ -81,6 +80,15 @@ export default function ReporteGestion({
     const [montoMax, setMontoMax] = useState(
         filtros.monto_max !== null ? String(filtros.monto_max) : '',
     );
+    const [columnas, setColumnas] = useColumnas(filtros.columnas);
+
+    // Cambiar de pestaña recarga: cada vista tiene sus propias columnas.
+    const cambiarVista = (vista: string) =>
+        router.get(
+            '/reportes/gestion',
+            { ...params, vista, columnas: [] },
+            { preserveState: true, preserveScroll: true },
+        );
 
     const params = {
         desde,
@@ -92,13 +100,26 @@ export default function ReporteGestion({
         localidad_resp_id: ubic.localidad_id,
         monto_min: montoMin,
         monto_max: montoMax,
+        vista: filtros.vista,
+        columnas,
     };
+
+    // Los encabezados salen de lo que el servidor ya aplicó, no de las fichas
+    // marcadas: si no, la tabla cambiaría antes de traer los datos.
+    const columnasTabla: Columna[] = opciones.columnas
+        .filter((c) => filtros.columnas.includes(c.clave))
+        .map((c) => ({ key: c.clave, header: c.label }));
 
     return (
         <>
             <Head title="Reporte de gestión" />
             <ReporteShell
                 title="Reporte de gestión"
+                descripcion="Qué pidió la gente y en qué acabó."
+                // En General cada renglón es una localidad, no una solicitud.
+                sustantivo={
+                    filtros.vista === 'general' ? 'localidades' : 'solicitudes'
+                }
                 icon={ClipboardList}
                 pageUrl="/reportes/gestion"
                 exportBase="/reportes/gestion.xlsx"
@@ -117,8 +138,29 @@ export default function ReporteGestion({
                     });
                     setMontoMin('');
                     setMontoMax('');
+                    setColumnas([]);
                 }}
-                columns={columnas}
+                pestanas={opciones.vistas.map((v) => ({
+                    ...v,
+                    activa: v.clave === filtros.vista,
+                }))}
+                onPestana={cambiarVista}
+                columnasField={
+                    opciones.eligeColumnas ? (
+                        <ColumnasField
+                            opciones={opciones.columnas}
+                            value={columnas}
+                            onChange={setColumnas}
+                        />
+                    ) : (
+                        <p className="text-sm text-muted-foreground">
+                            Esta vista sale con sus columnas fijas, como en la
+                            plataforma anterior.
+                        </p>
+                    )
+                }
+                totalColumnas={opciones.columnas.length}
+                columns={columnasTabla}
                 filas={filas}
                 paginacion={paginacion}
             >

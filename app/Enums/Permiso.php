@@ -45,9 +45,14 @@ enum Permiso: string
     case TableroEjecutivo = 'tableros.ejecutivo';
     case TableroGestion = 'tableros.gestion';
     case TableroFinanciero = 'tableros.financiero';
+    case TableroSeguridad = 'tableros.seguridad';
+    case TableroObra = 'tableros.obra';
 
     // Seguridad ciudadana: denuncias y detenidos.
     case SeguridadGestionar = 'seguridad.gestionar';
+
+    // Obra pública: expediente de obra por etapas.
+    case ObraGestionar = 'obra.gestionar';
 
     public function label(): string
     {
@@ -67,6 +72,9 @@ enum Permiso: string
             self::TableroEjecutivo => 'Ver tablero ejecutivo',
             self::TableroGestion => 'Ver tablero de gestión',
             self::TableroFinanciero => 'Ver tablero financiero',
+            self::TableroSeguridad => 'Ver tablero de seguridad',
+            self::TableroObra => 'Ver tablero de obra pública',
+            self::ObraGestionar => 'Gestionar obra pública',
             self::SeguridadGestionar => 'Gestionar seguridad',
         };
     }

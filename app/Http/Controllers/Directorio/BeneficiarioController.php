@@ -5,59 +5,13 @@ namespace App\Http\Controllers\Directorio;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Directorio\UpsertBeneficiarioRequest;
 use App\Models\Beneficiario;
-use App\Models\CatEstado;
-use App\Models\CatEstadoCivil;
-use App\Models\CatMunicipio;
-use App\Models\CatLocalidad;
-use App\Models\CatOcupacion;
-use App\Models\CatProfesion;
-use App\Models\CatSector;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
-use Inertia\Response;
 
 class BeneficiarioController extends Controller
 {
-    public function index(Request $request): Response
-    {
-        $busqueda = $request->string('busqueda')->trim()->toString();
-
-        $beneficiarios = Beneficiario::query()
-            ->with(['estado:id,nombre', 'municipio:id,nombre', 'localidad:id,nombre', 'sector:id,nombre'])
-            ->when($busqueda !== '', fn (Builder $q) => $q->where(fn (Builder $sub) => $sub
-                ->whereLike('nombre', "%{$busqueda}%")
-                ->orWhereLike('paterno', "%{$busqueda}%")
-                ->orWhereLike('materno', "%{$busqueda}%")
-                ->orWhereLike('curp', "%{$busqueda}%")
-                ->orWhereLike('celular', "%{$busqueda}%")))
-            ->orderBy('paterno')
-            ->orderBy('materno')
-            ->orderBy('nombre')
-            ->paginate(15)
-            ->withQueryString();
-
-        return Inertia::render('directorio/beneficiarios/index', [
-            'beneficiarios' => $beneficiarios->getCollection()->map($this->serializar(...))->values(),
-            'paginacion' => [
-                'total' => $beneficiarios->total(),
-                'currentPage' => $beneficiarios->currentPage(),
-                'lastPage' => $beneficiarios->lastPage(),
-                'prevUrl' => $beneficiarios->previousPageUrl(),
-                'nextUrl' => $beneficiarios->nextPageUrl(),
-                'busqueda' => $busqueda,
-            ],
-            'opciones' => [
-                'estados' => CatEstado::query()->orderBy('nombre')->get(['id', 'nombre']),
-                'sectores' => CatSector::query()->orderBy('nombre')->get(['id', 'nombre']),
-                'ocupaciones' => CatOcupacion::query()->orderBy('nombre')->get(['id', 'nombre']),
-                'profesiones' => CatProfesion::query()->orderBy('nombre')->get(['id', 'nombre']),
-                'estadosCiviles' => CatEstadoCivil::query()->orderBy('nombre')->get(['id', 'nombre']),
-            ],
-        ]);
-    }
-
     public function store(UpsertBeneficiarioRequest $request): RedirectResponse
     {
         $data = $request->validated();
@@ -88,7 +42,7 @@ class BeneficiarioController extends Controller
     /**
      * Búsqueda ligera para selectores (p. ej. representante de organización).
      */
-    public function buscar(Request $request): \Illuminate\Http\JsonResponse
+    public function buscar(Request $request): JsonResponse
     {
         $busqueda = $request->string('busqueda')->trim()->toString();
 

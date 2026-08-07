@@ -7,7 +7,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['clave', 'nombre', 'municipio_id', 'estado_id', 'tipo_localidad_id', 'cp', 'clave_ine'])]
+#[Fillable([
+    'clave', 'nombre', 'municipio_id', 'estado_id', 'tipo_localidad_id', 'cp', 'clave_ine',
+    'seccion', 'distrito_federal', 'tipo_seccion',
+])]
 class CatLocalidad extends Model
 {
     use SoftDeletes;

@@ -46,6 +46,8 @@ type DataTableProps<TData> = {
     server?: DataTableServer;
     /** Filtros adicionales que la búsqueda debe preservar (modo servidor). */
     extraParams?: Record<string, string | number | null | undefined>;
+    /** Muestra sólo el buscador y el paginador, sin la tabla. */
+    soloBuscador?: boolean;
 };
 
 export function DataTable<TData>({
@@ -57,6 +59,7 @@ export function DataTable<TData>({
     pageSize = 10,
     server,
     extraParams,
+    soloBuscador = false,
 }: DataTableProps<TData>) {
     const [search, setSearch] = useState(server?.busqueda ?? '');
     const [page, setPage] = useState(1);
@@ -151,6 +154,9 @@ export function DataTable<TData>({
                 </p>
             </div>
 
+            {/* En las vistas de tarjetas se reusa el buscador y el paginador,
+                pero las filas las pinta la propia pantalla. */}
+            {!soloBuscador && (
             <div className="overflow-hidden rounded-xl border border-sidebar-border/70 bg-card">
                 <Table>
                     <TableHeader>
@@ -192,6 +198,7 @@ export function DataTable<TData>({
                     </TableBody>
                 </Table>
             </div>
+            )}
 
             <div className="flex items-center justify-end gap-2">
                 <Button
